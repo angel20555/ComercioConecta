@@ -22,7 +22,7 @@ docs/
   superpowers/plans/     # plan F1-F4
 scripts/acceptance/      # scripts stdlib urllib: acceptanceF1.py (30/30) y acceptanceF2.py (29/29)
 frontend/                # Vite React TS que consume el backend real
-  src/api/client.ts      # apiGet<T>/apiPost<T> con API_BASE=http://localhost:8000 (sin mocks, sin lógica de grafo)
+  src/api/client.ts      # apiGet<T>/apiPost<T> con API_BASE=http://127.0.0.1:8000 (sin mocks, sin lógica de grafo; timeout 8 s)
   src/App.tsx            # "ComercioConecta — conecta backend" + muestra el estado real de /health
   src/components/        # Ledger, NetworkCanvas y Explorer (solo fetch/render)
 ```
@@ -48,7 +48,7 @@ npm run dev -- --port 5173
 npm run build
 ```
 
-Aceptación (backend recién reiniciado en `http://localhost:8000`; cada script parte de grafo vacío):
+Aceptación (backend recién reiniciado en `http://127.0.0.1:8000`; cada script parte de grafo vacío):
 
 ```bash
 python scripts/acceptance/acceptanceF1.py   # 30/30 PASS
