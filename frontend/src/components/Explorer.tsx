@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getComponents,
+  listProducts,
   reachable,
   type ComponentsRes,
   type ReachableItem,
   type ReachableRes,
 } from "../api/client";
+import ProductPicker from "./ProductPicker";
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : "error desconocido";
@@ -18,6 +20,8 @@ const DEPTHS = [
 ] as const;
 
 type Group = { distance: number; items: ReachableItem[] };
+
+type Props = { refreshToken: number };
 
 // Agrupa por la distancia que ya calculó el backend. No recorre nada aquí.
 function groupByDistance(items: ReachableItem[]): Group[] {
@@ -33,13 +37,28 @@ function groupByDistance(items: ReachableItem[]): Group[] {
   return groups.sort((a, b) => a.distance - b.distance);
 }
 
-export default function Explorer() {
+export default function Explorer({ refreshToken }: Props) {
   const [pid, setPid] = useState("pan");
+  const [products, setProducts] = useState<string[]>([]);
   const [depth, setDepth] = useState<number>(2);
   const [result, setResult] = useState<ReachableRes | null>(null);
   const [comps, setComps] = useState<ComponentsRes | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    listProducts()
+      .then((p) => {
+        if (vivo) setProducts(p.products);
+      })
+      .catch(() => {
+        if (vivo) setProducts([]);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [refreshToken]);
 
   async function consultar(): Promise<void> {
     setError(null);
@@ -82,25 +101,26 @@ export default function Explorer() {
       </div>
 
       <div className="panel-body">
-        <div className="query-row">
-          <label className="field">
-            <span>Producto de interés</span>
-            <input
-              className="input"
-              value={pid}
-              onChange={(e) => setPid(e.target.value)}
-              placeholder="pan"
-              autoComplete="off"
-            />
-          </label>
-          <button
-            className="btn btn-primary"
-            onClick={() => void consultar()}
-            disabled={busy}
-          >
+        <form
+          className="query-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void consultar();
+          }}
+        >
+          <ProductPicker
+            id="explorer-product"
+            label="Producto de interés"
+            value={pid}
+            options={products}
+            onChange={setPid}
+            placeholder="pan"
+            allowFreeText
+          />
+          <button className="btn btn-primary" type="submit" disabled={busy}>
             {busy ? "Consultando…" : "Consultar"}
           </button>
-        </div>
+        </form>
 
         <div className="segmented" role="group" aria-label="Saltos a recorrer">
           {DEPTHS.map((d) => (

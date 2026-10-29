@@ -92,7 +92,7 @@ export default function App() {
 
           <div className="column">
             <NetworkCanvas refreshToken={token} />
-            <Explorer />
+            <Explorer refreshToken={token} />
           </div>
         </div>
       </main>

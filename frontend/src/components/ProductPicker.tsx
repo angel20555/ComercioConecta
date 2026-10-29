@@ -14,6 +14,8 @@ type Props = {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Si es true, el texto escrito se conserva aunque no sea una opción. */
+  allowFreeText?: boolean;
 };
 
 export default function ProductPicker({
@@ -24,6 +26,7 @@ export default function ProductPicker({
   onChange,
   placeholder = "Elige un producto",
   disabled = false,
+  allowFreeText = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -84,12 +87,16 @@ export default function ProductPicker({
       return;
     }
     if (e.key === "Enter" && open) {
-      e.preventDefault();
-      if (filtered.length > 0) {
-        elegir(filtered[active < 0 ? 0 : active]);
+      if (active >= 0 && filtered[active] !== undefined) {
+        e.preventDefault();
+        elegir(filtered[active]);
+      } else if (!allowFreeText && filtered.length > 0) {
+        e.preventDefault();
+        elegir(filtered[0]);
       } else {
         setOpen(false);
         setQuery("");
+        if (!allowFreeText) e.preventDefault();
       }
       return;
     }
@@ -129,13 +136,14 @@ export default function ProductPicker({
               : undefined
           }
           autoComplete="off"
-          value={open ? query : value}
+          value={allowFreeText || !open ? value : query}
           placeholder={open ? "Buscar…" : placeholder}
           disabled={disabled}
           onChange={(e) => {
+            if (allowFreeText) onChange(e.target.value);
             setQuery(e.target.value);
             setOpen(true);
-            setActive(0);
+            setActive(allowFreeText ? -1 : 0);
           }}
           onClick={() => {
             if (!open) abrir();
