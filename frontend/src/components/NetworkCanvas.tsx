@@ -22,6 +22,7 @@ function layout(n: number, i: number): Pos {
 export default function NetworkCanvas({ refreshToken }: Props) {
   const [net, setNet] = useState<NetworkRes | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     let vivo = true;
@@ -34,6 +35,9 @@ export default function NetworkCanvas({ refreshToken }: Props) {
       })
       .catch((e: unknown) => {
         if (vivo) setError(e instanceof Error ? e.message : "error desconocido");
+      })
+      .finally(() => {
+        if (vivo) setCargando(false);
       });
     return () => {
       vivo = false;
@@ -50,8 +54,8 @@ export default function NetworkCanvas({ refreshToken }: Props) {
       <div className="panel-head">
         <h2 id="red-titulo">La red del barrio</h2>
         <p className="stats">
-          <span>{nodes.length} productos</span>
-          <span>{edges.length} relaciones</span>
+          <span>{cargando ? "…" : nodes.length} productos</span>
+          <span>{cargando ? "…" : edges.length} relaciones</span>
         </p>
       </div>
 
@@ -62,7 +66,11 @@ export default function NetworkCanvas({ refreshToken }: Props) {
           </p>
         )}
 
-        {nodes.length === 0 ? (
+        {cargando ? (
+          <div className="canvas-empty">
+            <strong>Cargando la red…</strong>
+          </div>
+        ) : nodes.length === 0 ? (
           <div className="canvas-empty">
             <strong>Todavía no hay red que mostrar</strong>
             <p className="empty-copy" style={{ color: "inherit", margin: "0 auto" }}>

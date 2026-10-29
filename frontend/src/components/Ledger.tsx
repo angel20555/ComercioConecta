@@ -23,6 +23,7 @@ export default function Ledger({ onChanged }: Props) {
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cargando, setCargando] = useState(true);
 
   async function refresh(): Promise<void> {
     try {
@@ -32,6 +33,8 @@ export default function Ledger({ onChanged }: Props) {
       setRels(r.relationships);
     } catch (e: unknown) {
       setError(msg(e));
+    } finally {
+      setCargando(false);
     }
   }
 
@@ -184,9 +187,11 @@ export default function Ledger({ onChanged }: Props) {
         )}
 
         <div className="list-title">
-          Productos en la red <span>{products.length}</span>
+          Productos en la red <span>{cargando ? "…" : products.length}</span>
         </div>
-        {products.length === 0 ? (
+        {cargando ? (
+          <p className="empty-copy">Cargando…</p>
+        ) : products.length === 0 ? (
           <p className="empty-copy">Todavía no hay productos registrados.</p>
         ) : (
           <ul className="chips">
@@ -199,9 +204,11 @@ export default function Ledger({ onChanged }: Props) {
         )}
 
         <div className="list-title">
-          Relaciones <span>{rels.length}</span>
+          Relaciones <span>{cargando ? "…" : rels.length}</span>
         </div>
-        {rels.length === 0 ? (
+        {cargando ? (
+          <p className="empty-copy">Cargando…</p>
+        ) : rels.length === 0 ? (
           <p className="empty-copy">
             Una relación une dos productos que la gente compra junta.
           </p>
