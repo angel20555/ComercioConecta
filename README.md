@@ -14,14 +14,17 @@ backend/                 # FastAPI + Pydantic v2 + Uvicorn
   app/
     __init__.py
     main.py              # FastAPI + CORS + GET /health + GET /
-    graph.py             # ProductGraph stub T0 (adj vacío, add_* -> NotImplementedError; real en F1)
+    graph.py             # ProductGraph real no-dirigido (F1)
+    algorithms.py        # F2: bfs_reachable + connected_components propias (sin NetworkX)
+    routers/             # products, relationships, network (F1) + explore (F2)
 docs/
   aiLog.md               # bitácora IA (tabla Decisión|Herramienta|Propuesta|Acepté/Rechacé|Verificación)
   superpowers/plans/     # plan F1-F4
-scripts/acceptance/      # scripts stdlib urllib (F1 existe: acceptanceF1.py 30/30 PASS; F2-F4 futuros)
-frontend/                # Task 0C (integrado): Vite React TS que consume el backend real
+scripts/acceptance/      # scripts stdlib urllib: acceptanceF1.py (30/30) y acceptanceF2.py (29/29)
+frontend/                # Vite React TS que consume el backend real
   src/api/client.ts      # apiGet<T>/apiPost<T> con API_BASE=http://localhost:8000 (sin mocks, sin lógica de grafo)
   src/App.tsx            # "ComercioConecta — conecta backend" + muestra el estado real de /health
+  src/components/        # Ledger, NetworkCanvas y Explorer (solo fetch/render)
 ```
 
 ## Instalación y ejecución
@@ -45,13 +48,13 @@ npm run dev -- --port 5173
 npm run build
 ```
 
-Aceptación (F1 existe y pasa 30/30 con backend recién reiniciado en `http://localhost:8000`; F2-F4 futuros):
+Aceptación (backend recién reiniciado en `http://localhost:8000`; cada script parte de grafo vacío):
 
 ```bash
-python scripts/acceptance/acceptanceF1.py
-python scripts/acceptance/acceptanceF2.py
-python scripts/acceptance/acceptanceF3.py
-python scripts/acceptance/acceptanceF4.py
+python scripts/acceptance/acceptanceF1.py   # 30/30 PASS
+python scripts/acceptance/acceptanceF2.py   # 29/29 PASS
+python scripts/acceptance/acceptanceF3.py   # futuro
+python scripts/acceptance/acceptanceF4.py   # futuro
 ```
 
 ## Endpoints (verificado contra `backend/app/routers/` + `acceptanceF1.py` 30/30 PASS)
@@ -87,6 +90,26 @@ POST /relationships {"source":"pan","target":"pan","weight":1}    # 422 {"detail
 GET /network  # 200 {"nodes":[{"id":"leche"},{"id":"pan"}],"edges":[{"source":"leche","target":"pan","weight":3}],"undirected":true}
 ```
 
+F2 Exploración (backend de A sobre el núcleo BFS de B; UI de C):
+
+| Método | Ruta | OK | Errores |
+|---|---|---|---|
+| GET | `/reachable?product=pan&depth=2` | 200 `{"product","depth","reachable":[{"id","distance"}]}`; `weight` solo si `distance=1` | 404 producto inexistente, 422 `depth` fuera de `1..3` o no numérico, 422 sin `product` |
+| GET | `/components` | 200 `{"components":[[...]],"count":N}` (grupos ordenados) | — |
+
+Notas F2: `depth` por defecto `2`; el origen nunca aparece en `reachable`; producto sin aristas → 200 con `"message":"producto aislado"`; grafo sin productos → 200 con `"message":"red vacía"` (esa regla tiene prioridad sobre el 404, porque aún no hay ningún producto que consultar); el orden de `reachable` lo fija el BFS (peso desc, id asc) y el frontend no reordena.
+
+```bash
+POST /products {"id":"pan"} ... {"id":"queso"}
+POST /relationships {"source":"pan","target":"leche","weight":3}  # 201
+POST /relationships {"source":"leche","target":"queso","weight":2} # 201
+GET /reachable?product=pan&depth=2
+# 200 {"product":"pan","depth":2,
+#      "reachable":[{"id":"leche","distance":1,"weight":3},{"id":"queso","distance":2}]}
+GET /reachable?product=queso&depth=2   # simétrico: leche 1, pan 2
+GET /components  # 200 {"components":[["leche","pan","queso"]],"count":1}
+```
+
 ## Decisiones fijadas por el plan (grill + brainstorming, no re-discutir sin ADR)
 
 - Grafo **NO-DIRIGIDO simétrico**: `pan-leche` crea ambas entradas `adj[A][B]=adj[B][A]`. Relación = "se compran juntos", sin orden. `edges()` devuelve cada arista una vez.
@@ -95,14 +118,14 @@ GET /network  # 200 {"nodes":[{"id":"leche"},{"id":"pan"}],"edges":[{"source":"l
 
 ## Funcionalidades actuales vs futuras
 
-**Actual (Task 0 + F1 backend):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 y `acceptanceF1.py` 30/30 PASS, frontend shell Vite React TS (`src/api/client.ts` con `API_BASE=http://localhost:8000`; `src/App.tsx` muestra el estado real de `/health`, sin mocks ni lógica de grafo en TS), docs y git. Aún no hay UI ledger/canvas F1 (paso C), exploración (F2), recomendaciones (F3) ni panel (F4).
+**Actual (Task 0 + F1 + F2 backend):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `acceptanceF1.py` 30/30 PASS y `acceptanceF2.py` 29/29 PASS, frontend Vite React TS que consume la API real (ledger, canvas y explorer, sin mocks ni lógica de grafo en TS), docs y git. Faltan recomendaciones (F3) y panel con cambio docente (F4).
 
 **Estado F1-F4:**
 
 | Feature | Alcance previsto | Estado |
 |---|---|---|
-| F1 Red comercial inicial | `POST/GET /products`, `POST/GET /relationships`, `GET /network` + ledger/canvas | Backend + acceptance OK (30/30); UI ledger/canvas pendiente (C) |
-| F2 Exploración | `GET /reachable?product=X&depth=2`, `GET /components` (BFS propio O(V+E)) | No implementado |
+| F1 Red comercial inicial | `POST/GET /products`, `POST/GET /relationships`, `GET /network` + ledger/canvas | Completo: backend + acceptance 30/30 + UI |
+| F2 Exploración | `GET /reachable?product=X&depth=2`, `GET /components` (BFS propio O(V+E)) | Completo: `algorithms.py` + router + explorer + acceptance 29/29 |
 | F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | No implementado |
 | F4 Panel demostrable | Tabs Red/Explora/Propuesta/Panel + `ChangeSlot` + cambio docente con ADR | No implementado |
 
