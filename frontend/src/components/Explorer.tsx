@@ -1,134 +1,223 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getComponents,
+  listProducts,
   reachable,
   type ComponentsRes,
+  type ReachableItem,
   type ReachableRes,
 } from "../api/client";
-
-const VERDE = "#1B7A3D";
-const PAPEL = "#FAF6EF";
-const TINTA = "#1E1B16";
+import ProductPicker from "./ProductPicker";
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : "error desconocido";
 }
 
-export default function Explorer() {
+const DEPTHS = [
+  { value: 1, label: "directo" },
+  { value: 2, label: "complementario" },
+  { value: 3, label: "ruidoso" },
+] as const;
+
+type Group = { distance: number; items: ReachableItem[] };
+
+type Props = { refreshToken: number };
+
+// Agrupa por la distancia que ya calculó el backend. No recorre nada aquí.
+function groupByDistance(items: ReachableItem[]): Group[] {
+  const groups: Group[] = [];
+  for (const item of items) {
+    const found = groups.find((g) => g.distance === item.distance);
+    if (found === undefined) {
+      groups.push({ distance: item.distance, items: [item] });
+    } else {
+      found.items.push(item);
+    }
+  }
+  return groups.sort((a, b) => a.distance - b.distance);
+}
+
+export default function Explorer({ refreshToken }: Props) {
   const [pid, setPid] = useState("pan");
-  const [depth, setDepth] = useState("2");
+  const [products, setProducts] = useState<string[]>([]);
+  const [depth, setDepth] = useState<number>(2);
   const [result, setResult] = useState<ReachableRes | null>(null);
   const [comps, setComps] = useState<ComponentsRes | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    listProducts()
+      .then((p) => {
+        if (vivo) setProducts(p.products);
+      })
+      .catch(() => {
+        if (vivo) setProducts([]);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [refreshToken]);
 
   async function consultar(): Promise<void> {
     setError(null);
     setResult(null);
+    if (pid.trim() === "") {
+      setError("Escribe el nombre de un producto registrado.");
+      return;
+    }
+    setBusy(true);
     try {
       // El backend hace el BFS; aquí solo se pide y se pinta.
-      const r = await reachable(pid.trim(), Number(depth));
-      setResult(r);
+      setResult(await reachable(pid.trim(), depth));
     } catch (e: unknown) {
       setError(msg(e));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function verComponentes(): Promise<void> {
     setError(null);
     setComps(null);
+    setBusy(true);
     try {
       setComps(await getComponents());
     } catch (e: unknown) {
       setError(msg(e));
+    } finally {
+      setBusy(false);
     }
   }
 
+  const groups = result === null ? [] : groupByDistance(result.reachable);
+
   return (
-    <section
-      aria-label="Exploración de relaciones"
-      style={{ background: PAPEL, color: TINTA, border: `2px solid ${VERDE}`, borderRadius: 8, padding: 12 }}
-    >
-      <h2 style={{ margin: "0 0 8px" }}>Explora</h2>
-      <p style={{ margin: "0 0 12px", fontSize: 13 }}>
-        El backend recorre la red; aquí solo se consulta y se muestra.
-      </p>
+    <section className="panel" aria-labelledby="explora-titulo">
+      <div className="panel-head panel-head--explora">
+        <h2 id="explora-titulo">Explora la red</h2>
+        <p className="hint">El recorrido lo hace el backend</p>
+      </div>
 
-      <label style={{ display: "block", fontSize: 13 }}>
-        Producto de interés
-        <input
-          value={pid}
-          onChange={(e) => setPid(e.target.value)}
-          placeholder="pan"
-          style={{ display: "block", width: "100%", margin: "4px 0 8px" }}
-        />
-      </label>
-      <label style={{ display: "block", fontSize: 13 }}>
-        Profundidad
-        <select
-          value={depth}
-          onChange={(e) => setDepth(e.target.value)}
-          style={{ display: "block", width: "100%", margin: "4px 0 4px" }}
+      <div className="panel-body">
+        <form
+          className="query-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void consultar();
+          }}
         >
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-        </select>
-        <span style={{ fontSize: 12 }}>
-          1=directo, 2=complementario, 3=máximo ruidoso
-        </span>
-      </label>
-      <button
-        onClick={() => void consultar()}
-        style={{ background: VERDE, color: "#fff", border: 0, borderRadius: 6, padding: "6px 12px", marginTop: 8 }}
-      >
-        Consultar alcanzables
-      </button>{" "}
-      <button
-        onClick={() => void verComponentes()}
-        style={{ background: "#fff", color: VERDE, border: `1px solid ${VERDE}`, borderRadius: 6, padding: "6px 12px" }}
-      >
-        Ver grupos (componentes)
-      </button>
+          <ProductPicker
+            id="explorer-product"
+            label="Producto de interés"
+            value={pid}
+            options={products}
+            onChange={setPid}
+            placeholder="pan"
+            allowFreeText
+          />
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {busy ? "Consultando…" : "Consultar"}
+          </button>
+        </form>
 
-      {error !== null && (
-        <p role="alert" style={{ fontSize: 13 }}>
-          {error} (404 inexistente, 422 depth fuera de 1..3)
-        </p>
-      )}
+        <div className="segmented" role="group" aria-label="Saltos a recorrer">
+          {DEPTHS.map((d) => (
+            <button
+              key={d.value}
+              type="button"
+              className="seg"
+              aria-pressed={depth === d.value}
+              onClick={() => setDepth(d.value)}
+            >
+              <strong>{d.value}</strong>
+              <small>{d.label}</small>
+            </button>
+          ))}
+        </div>
 
-      {result !== null && (
-        <>
-          <h3>
-            Alcanzables desde {result.product} (depth {result.depth})
-          </h3>
-          {result.message != null && <p style={{ fontSize: 13 }}>{result.message}</p>}
-          <ul>
-            {result.reachable.map((r) => (
-              <li key={r.id}>
-                {r.id} — distancia {r.distance}
-                {r.weight !== undefined && ` (peso directo ${r.weight})`}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+        <div className="actions">
+          <button
+            className="btn btn-quiet"
+            onClick={() => void verComponentes()}
+            disabled={busy}
+          >
+            Ver grupos del barrio
+          </button>
+        </div>
 
-      {comps !== null && (
-        <>
-          <h3>Grupos ({comps.count})</h3>
-          {comps.message != null && <p style={{ fontSize: 13 }}>{comps.message}</p>}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {comps.components.map((c) => (
-              <p
-                key={c.join("-")}
-                style={{ border: `1px solid ${VERDE}`, borderRadius: 16, padding: "2px 10px", margin: 0, fontSize: 13 }}
-              >
-                {c.join(", ")}
-              </p>
-            ))}
-          </div>
-        </>
-      )}
+        {error !== null && (
+          <p className="notice notice--error" role="alert">
+            {error}
+            <br />
+            Revisa que el producto esté registrado en el mostrador.
+          </p>
+        )}
+
+        <div aria-live="polite">
+          {result !== null && (
+            <>
+              <div className="result-head">
+                <h3>Alcanzables desde {result.product}</h3>
+                <span>hasta {result.depth} saltos</span>
+              </div>
+
+              {result.message != null && result.reachable.length === 0 && (
+                <p className="empty-copy">{result.message}</p>
+              )}
+
+              {groups.map((g) => (
+                <div className="dist-group" key={g.distance}>
+                  <p className="dist-label">
+                    {g.distance === 1
+                      ? "A 1 salto, se compran juntos"
+                      : `A ${g.distance} saltos`}
+                  </p>
+                  <ul className="dist-list">
+                    {g.items.map((r) => (
+                      <li key={r.id}>
+                        <span>{r.id}</span>
+                        {r.weight !== undefined && (
+                          <span className="weight">{r.weight} veces</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </>
+          )}
+
+          {comps !== null && (
+            <>
+              <div className="result-head">
+                <h3>Grupos del barrio</h3>
+                <span>{comps.count} grupos</span>
+              </div>
+
+              {comps.message != null && comps.components.length === 0 && (
+                <p className="empty-copy">{comps.message}</p>
+              )}
+
+              <ul className="group-list">
+                {comps.components.map((c) => (
+                  <li className="group" key={c.join("-")}>
+                    {c.join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+
+        {result === null && comps === null && error === null && (
+          <p className="empty-copy" style={{ marginTop: 18 }}>
+            Consulta qué se vende cerca de un producto, o mira cómo se separan
+            los grupos de la red.
+          </p>
+        )}
+      </div>
     </section>
   );
 }

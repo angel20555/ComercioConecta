@@ -6,50 +6,104 @@ import Explorer from "./components/Explorer";
 
 type Health = { status: string };
 
-const VERDE = "#1B7A3D";
-const PAPEL = "#FAF6EF";
-const TINTA = "#1E1B16";
-
 export default function App() {
-  const [health, setHealth] = useState<string>("conectando...");
+  const [health, setHealth] = useState<"conectando" | "ok" | "error">(
+    "conectando",
+  );
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState(0);
 
   useEffect(() => {
+    let vivo = true;
     apiGet<Health>("/health")
       .then((data) => {
-        setHealth(data.status);
+        if (!vivo) return;
+        setHealth(data.status === "ok" ? "ok" : "error");
         setError(null);
       })
       .catch((e: unknown) => {
-        setHealth("sin conexión");
+        if (!vivo) return;
+        setHealth("error");
         setError(e instanceof Error ? e.message : "error desconocido");
       });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
+  const estado =
+    health === "ok"
+      ? "API conectada"
+      : health === "error"
+        ? "API sin conexión"
+        : "Conectando con la API";
+
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", background: PAPEL, color: TINTA, minHeight: "100vh", padding: "1rem" }}>
-      <h1 style={{ color: VERDE, margin: "0 0 4px" }}>ComercioConecta — red inicial + exploración</h1>
-      <p style={{ margin: "0 0 12px" }}>
-        Backend <code>http://localhost:8000</code> — estado: <strong>{health}</strong>
-      </p>
-      {error !== null && (
-        <p role="alert">
-          No se pudo alcanzar el backend. Arranca con{" "}
-          <code>uvicorn app.main:app --port 8000</code> desde <code>backend/</code>. Detalle: {error}
+    <>
+      <a className="skip-link" href="#contenido">
+        Ir al contenido
+      </a>
+
+      <header className="masthead">
+        <div className="masthead-inner">
+          <div className="brand">
+            <svg className="brand-mark" viewBox="0 0 60 60" aria-hidden="true">
+              <path
+                d="M19 39 42 37M19 39 27 21M36 20 45 33"
+                stroke="#fbf7ec"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <circle cx="14" cy="44" r="8" fill="#f4c442" />
+              <circle cx="46" cy="40" r="8" fill="#fbf7ec" />
+              <circle cx="30" cy="14" r="8" fill="#d2452f" />
+            </svg>
+            <div>
+              <h1>ComercioConecta</h1>
+              <p>La red de co-compra de las tiendas de barrio</p>
+            </div>
+          </div>
+
+          <div className="status" role="status">
+            <span className="status-dot" data-state={health} aria-hidden="true" />
+            <span>
+              {estado}
+              <small>127.0.0.1:8000</small>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="awning" aria-hidden="true" />
+
+      <main className="page" id="contenido">
+        {error !== null && (
+          <p className="notice notice--error" role="alert">
+            <strong>No se pudo hablar con el backend.</strong> Arráncalo desde{" "}
+            <code>backend/</code> con{" "}
+            <code>uvicorn app.main:app --port 8000</code>. Detalle: {error}
+          </p>
+        )}
+
+        <div className="workspace">
+          <div className="column">
+            <Ledger onChanged={() => setToken((t) => t + 1)} />
+          </div>
+
+          <div className="column">
+            <NetworkCanvas refreshToken={token} />
+            <Explorer refreshToken={token} />
+          </div>
+        </div>
+      </main>
+
+      <footer className="footer">
+        <p>
+          Datos sintéticos de barrio: no hay clientes reales, precios ni
+          campañas. El grafo y sus recorridos viven en el backend; esta pantalla
+          solo consulta y dibuja.
         </p>
-      )}
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div style={{ flex: "0 1 360px", minWidth: 300 }}>
-          <Ledger onChanged={() => setToken((t) => t + 1)} />
-        </div>
-        <div style={{ flex: "1 1 420px", minWidth: 320 }}>
-          <NetworkCanvas refreshToken={token} />
-        </div>
-        <div style={{ flex: "0 1 360px", minWidth: 300 }}>
-          <Explorer />
-        </div>
-      </div>
-    </main>
+      </footer>
+    </>
   );
 }
