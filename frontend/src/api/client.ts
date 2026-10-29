@@ -55,3 +55,31 @@ export function createRel(
 export function getNetwork(): Promise<NetworkRes> {
   return apiGet<NetworkRes>("/network");
 }
+
+// Tipos F2: espejo exacto del contrato backend, sin cómputo.
+export type ReachableItem = { id: string; distance: number; weight?: number };
+export type ReachableRes = {
+  product: string;
+  depth: number;
+  reachable: ReachableItem[];
+  message?: string;
+};
+export type ComponentsRes = {
+  components: string[][];
+  count: number;
+  message?: string;
+};
+
+export function reachable(
+  product: string,
+  depth?: number,
+): Promise<ReachableRes> {
+  const q = depth === undefined ? "" : `&depth=${depth}`;
+  return apiGet<ReachableRes>(
+    `/reachable?product=${encodeURIComponent(product)}${q}`,
+  );
+}
+
+export function getComponents(): Promise<ComponentsRes> {
+  return apiGet<ComponentsRes>("/components");
+}

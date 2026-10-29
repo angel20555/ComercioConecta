@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiGet } from "./api/client";
 import Ledger from "./components/Ledger";
 import NetworkCanvas from "./components/NetworkCanvas";
+import Explorer from "./components/Explorer";
 
 type Health = { status: string };
 
@@ -28,7 +29,7 @@ export default function App() {
 
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", background: PAPEL, color: TINTA, minHeight: "100vh", padding: "1rem" }}>
-      <h1 style={{ color: VERDE, margin: "0 0 4px" }}>ComercioConecta — red inicial</h1>
+      <h1 style={{ color: VERDE, margin: "0 0 4px" }}>ComercioConecta — red inicial + exploración</h1>
       <p style={{ margin: "0 0 12px" }}>
         Backend <code>http://localhost:8000</code> — estado: <strong>{health}</strong>
       </p>
@@ -44,6 +45,9 @@ export default function App() {
         </div>
         <div style={{ flex: "1 1 420px", minWidth: 320 }}>
           <NetworkCanvas refreshToken={token} />
+        </div>
+        <div style={{ flex: "0 1 360px", minWidth: 300 }}>
+          <Explorer />
         </div>
       </div>
     </main>
