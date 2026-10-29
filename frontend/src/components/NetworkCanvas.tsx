@@ -1,23 +1,22 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { getNetwork, type NetworkRes } from "../api/client";
-
-const VERDE = "#1B7A3D";
-const PAPEL = "#FAF6EF";
-const TINTA = "#1E1B16";
 
 type Props = { refreshToken: number };
 
 type Pos = { x: number; y: number };
 
+const CX = 330;
+const CY = 190;
+
 // Solo dibujo: posiciones en círculo por orden de llegada.
-// Sin cómputo en TS; no usa el peso para ubicar.
+// El peso decide el grosor, nunca la posición. Sin cómputo de grafo en TS.
 function layout(n: number, i: number): Pos {
-  const cx = 200;
-  const cy = 140;
-  const r = 95;
-  if (n === 1) return { x: cx, y: cy };
+  if (n === 1) return { x: CX, y: CY };
+  // Dos productos se leen mejor lado a lado que en vertical.
+  if (n === 2) return { x: CX + (i === 0 ? -150 : 150), y: CY };
+  const r = n <= 4 ? 110 : n <= 8 ? 138 : 150;
   const a = (2 * Math.PI * i) / n - Math.PI / 2;
-  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  return { x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) };
 }
 
 export default function NetworkCanvas({ refreshToken }: Props) {
@@ -47,45 +46,92 @@ export default function NetworkCanvas({ refreshToken }: Props) {
   nodes.forEach((n, i) => pos.set(n.id, layout(nodes.length, i)));
 
   return (
-    <section
-      aria-label="Red comercial"
-      style={{ background: PAPEL, color: TINTA, border: `2px solid ${VERDE}`, borderRadius: 8, padding: 12 }}
-    >
-      <h2 style={{ margin: "0 0 8px" }}>Red (no-dirigida)</h2>
-      {error !== null && <p role="alert">{error}</p>}
-      {net?.message !== undefined && nodes.length === 0 && <p>{net.message}</p>}
-      <svg viewBox="0 0 400 280" width="100%" role="img" aria-label="canvas red">
-        {edges.map((e) => {
-          const a = pos.get(e.source);
-          const b = pos.get(e.target);
-          if (a === undefined || b === undefined) return null;
-          return (
-            <line
-              key={`${e.source}-${e.target}`}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke={VERDE}
-              strokeWidth={1 + Math.min(e.weight, 5)}
-            />
-          );
-        })}
-        {nodes.map((n) => {
-          const p = pos.get(n.id);
-          if (p === undefined) return null;
-          return (
-            <g key={n.id}>
-              <circle cx={p.x} cy={p.y} r={14} fill="#fff" stroke={VERDE} strokeWidth={2} />
-              <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={10} fill={TINTA}>
-                {n.id}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-      <p style={{ fontSize: 12, margin: "8px 0 0" }}>
-        {edges.length} aristas · grosor ∝ peso · líneas sin flecha (simétrica).
+    <section className="panel" aria-labelledby="red-titulo">
+      <div className="panel-head">
+        <h2 id="red-titulo">La red del barrio</h2>
+        <p className="stats">
+          <span>{nodes.length} productos</span>
+          <span>{edges.length} relaciones</span>
+        </p>
+      </div>
+
+      <div className="canvas-body">
+        {error !== null && (
+          <p className="notice notice--error" role="alert">
+            {error}
+          </p>
+        )}
+
+        {nodes.length === 0 ? (
+          <div className="canvas-empty">
+            <strong>Todavía no hay red que mostrar</strong>
+            <p className="empty-copy" style={{ color: "inherit", margin: "0 auto" }}>
+              Registra dos productos en el mostrador y únelos con una relación.
+            </p>
+          </div>
+        ) : (
+          <svg
+            viewBox="0 0 660 380"
+            role="img"
+            aria-label={`Red con ${nodes.length} productos y ${edges.length} relaciones; las líneas no tienen dirección.`}
+          >
+            {edges.map((e) => {
+              const a = pos.get(e.source);
+              const b = pos.get(e.target);
+              if (a === undefined || b === undefined) return null;
+              const mx = (a.x + b.x) / 2;
+              const my = (a.y + b.y) / 2;
+              const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+              const nx = (-(b.y - a.y) / len) * 12;
+              const ny = ((b.x - a.x) / len) * 12;
+              return (
+                <g key={`${e.source}-${e.target}`}>
+                  <line
+                    className="edge"
+                    x1={a.x}
+                    y1={a.y}
+                    x2={b.x}
+                    y2={b.y}
+                    strokeWidth={1.5 + Math.min(e.weight, 6)}
+                    pathLength={1}
+                  />
+                  <text
+                    className="edge-label"
+                    x={mx + nx}
+                    y={my + ny}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >
+                    {e.weight}
+                  </text>
+                </g>
+              );
+            })}
+
+            {nodes.map((n) => {
+              const p = pos.get(n.id);
+              if (p === undefined) return null;
+              const arriba = p.y < CY;
+              return (
+                <g className="node" key={n.id}>
+                  <circle cx={p.x} cy={p.y} r={22} />
+                  <text
+                    x={p.x}
+                    y={arriba ? p.y - 31 : p.y + 38}
+                    textAnchor="middle"
+                  >
+                    {n.id}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        )}
+      </div>
+
+      <p className="canvas-foot">
+        El grosor de la línea crece con las veces que se venden juntos. Las
+        líneas no tienen flecha: la relación vale en ambos sentidos.
       </p>
     </section>
   );

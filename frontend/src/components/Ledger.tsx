@@ -7,10 +7,6 @@ import {
   type RelItem,
 } from "../api/client";
 
-const VERDE = "#1B7A3D";
-const PAPEL = "#FAF6EF";
-const TINTA = "#1E1B16";
-
 type Props = { onChanged: () => void };
 
 function msg(e: unknown): string {
@@ -26,6 +22,7 @@ export default function Ledger({ onChanged }: Props) {
   const [weight, setWeight] = useState("3");
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function refresh(): Promise<void> {
     try {
@@ -45,116 +42,190 @@ export default function Ledger({ onChanged }: Props) {
   async function altaProducto(): Promise<void> {
     setInfo(null);
     setError(null);
+    setBusy(true);
     try {
       const r = await createProduct(pid.trim());
-      setInfo(`POST /products -> 201 ${r.id}`);
+      setInfo(`Producto agregado: ${r.id}`);
       setPid("");
       await refresh();
       onChanged();
     } catch (e: unknown) {
       setError(msg(e));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function altaRel(): Promise<void> {
     setInfo(null);
     setError(null);
+    setBusy(true);
     try {
       const w = Number(weight);
       const r = await createRel(source.trim(), target.trim(), w);
-      setInfo(`POST /relationships -> 201 ${r.source}-${r.target} w=${r.weight}`);
+      setInfo(
+        `Relación agregada: ${r.source} y ${r.target}, ${r.weight} ${
+          r.weight === 1 ? "venta juntos" : "ventas juntos"
+        }.`,
+      );
       await refresh();
       onChanged();
     } catch (e: unknown) {
       setError(msg(e));
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <section
-      aria-label="Registro comercial"
-      style={{ background: PAPEL, color: TINTA, border: `2px solid ${VERDE}`, borderRadius: 8, padding: 12 }}
-    >
-      <h2 style={{ margin: "0 0 8px" }}>Registro</h2>
-      <p style={{ margin: "0 0 12px", fontSize: 13 }}>
-        Datos sintéticos de barrio: pan, leche, queso, café.
-      </p>
+    <section className="panel" aria-labelledby="registro-titulo">
+      <div className="panel-head panel-head--registro">
+        <h2 id="registro-titulo">Mostrador</h2>
+        <p className="hint">Carga la red del barrio</p>
+      </div>
 
-      <label style={{ display: "block", fontSize: 13 }}>
-        Producto
-        <input
-          value={pid}
-          onChange={(e) => setPid(e.target.value)}
-          placeholder="pan"
-          style={{ display: "block", width: "100%", margin: "4px 0 8px" }}
-        />
-      </label>
-      <button
-        onClick={() => void altaProducto()}
-        style={{ background: VERDE, color: "#fff", border: 0, borderRadius: 6, padding: "6px 12px" }}
-      >
-        Crear producto
-      </button>
+      <div className="panel-body">
+        <div className="step">
+          <span className="step-num" aria-hidden="true">
+            1
+          </span>
+          <div>
+            <h3>Producto</h3>
+            <p>El nombre tal como lo pide el vecino.</p>
+          </div>
+        </div>
 
-      <hr style={{ margin: "12px 0" }} />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void altaProducto();
+          }}
+        >
+          <label className="field">
+            <span>Nombre del producto</span>
+            <input
+              className="input"
+              value={pid}
+              onChange={(e) => setPid(e.target.value)}
+              placeholder="pan"
+              autoComplete="off"
+            />
+          </label>
+          <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+            Agregar producto
+          </button>
+        </form>
 
-      <label style={{ display: "block", fontSize: 13 }}>
-        Origen
-        <input
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          placeholder="pan"
-          style={{ display: "block", width: "100%", margin: "4px 0 8px" }}
-        />
-      </label>
-      <label style={{ display: "block", fontSize: 13 }}>
-        Destino
-        <input
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          placeholder="leche"
-          style={{ display: "block", width: "100%", margin: "4px 0 8px" }}
-        />
-      </label>
-      <label style={{ display: "block", fontSize: 13 }}>
-        Peso (frecuencia &gt; 0)
-        <input
-          value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-          placeholder="3"
-          inputMode="numeric"
-          style={{ display: "block", width: "100%", margin: "4px 0 8px" }}
-        />
-      </label>
-      <button
-        onClick={() => void altaRel()}
-        style={{ background: VERDE, color: "#fff", border: 0, borderRadius: 6, padding: "6px 12px" }}
-      >
-        Crear relación
-      </button>
+        <div className="divider" />
 
-      {info !== null && <p style={{ fontSize: 13 }}>{info}</p>}
-      {error !== null && (
-        <p role="alert" style={{ fontSize: 13 }}>
-          {error} (201 crea, 409 duplicado, 404 inexistente, 422 inválido)
-        </p>
-      )}
+        <div className="step">
+          <span className="step-num" aria-hidden="true">
+            2
+          </span>
+          <div>
+            <h3>Relación</h3>
+            <p>Dos productos que salen juntos y cuántas veces.</p>
+          </div>
+        </div>
 
-      <h3>Productos ({products.length})</h3>
-      <ul>
-        {products.map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ul>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void altaRel();
+          }}
+        >
+          <div className="field-grid">
+            <label className="field">
+              <span>Producto A</span>
+              <input
+                className="input"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                placeholder="pan"
+                autoComplete="off"
+              />
+            </label>
+            <label className="field">
+              <span>Producto B</span>
+              <input
+                className="input"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder="leche"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          <label className="field">
+            <span>Veces que se vendieron juntos</span>
+            <input
+              className="input"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder="3"
+              inputMode="numeric"
+              autoComplete="off"
+            />
+          </label>
+          <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+            Agregar relación
+          </button>
+        </form>
 
-      <h3>Relaciones ({rels.length})</h3>
-      <ul>
-        {rels.map((r) => (
-          <li key={`${r.source}-${r.target}`}>
-            {r.source} — {r.target} (w={r.weight})
-          </li>
-        ))}
-      </ul>
+        {info !== null && (
+          <p className="notice" role="status">
+            {info}
+          </p>
+        )}
+        {error !== null && (
+          <p className="notice notice--error" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="list-title">
+          Productos en la red <span>{products.length}</span>
+        </div>
+        {products.length === 0 ? (
+          <p className="empty-copy">Todavía no hay productos registrados.</p>
+        ) : (
+          <ul className="chips">
+            {products.map((p) => (
+              <li className="chip" key={p}>
+                {p}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="list-title">
+          Relaciones <span>{rels.length}</span>
+        </div>
+        {rels.length === 0 ? (
+          <p className="empty-copy">
+            Una relación une dos productos que la gente compra junta.
+          </p>
+        ) : (
+          <table className="ledger-table">
+            <thead>
+              <tr>
+                <th scope="col">Producto A</th>
+                <th scope="col">Producto B</th>
+                <th scope="col">Veces</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rels.map((r) => (
+                <tr key={`${r.source}-${r.target}`}>
+                  <td>{r.source}</td>
+                  <td>{r.target}</td>
+                  <td>{r.weight}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </section>
   );
 }
