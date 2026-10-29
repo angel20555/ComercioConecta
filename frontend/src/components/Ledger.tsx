@@ -6,6 +6,7 @@ import {
   listRels,
   type RelItem,
 } from "../api/client";
+import ProductPicker from "./ProductPicker";
 
 type Props = { onChanged: () => void };
 
@@ -17,8 +18,8 @@ export default function Ledger({ onChanged }: Props) {
   const [products, setProducts] = useState<string[]>([]);
   const [rels, setRels] = useState<RelItem[]>([]);
   const [pid, setPid] = useState("pan");
-  const [source, setSource] = useState("pan");
-  const [target, setTarget] = useState("leche");
+  const [source, setSource] = useState("");
+  const [target, setTarget] = useState("");
   const [weight, setWeight] = useState("3");
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,10 +63,20 @@ export default function Ledger({ onChanged }: Props) {
   async function altaRel(): Promise<void> {
     setInfo(null);
     setError(null);
+
+    if (!products.includes(source) || !products.includes(target)) {
+      setError("Elige los dos productos de la lista.");
+      return;
+    }
+    if (source === target) {
+      setError("Producto A y Producto B deben ser distintos.");
+      return;
+    }
+
     setBusy(true);
     try {
       const w = Number(weight);
-      const r = await createRel(source.trim(), target.trim(), w);
+      const r = await createRel(source, target, w);
       setInfo(
         `Relación agregada: ${r.source} y ${r.target}, ${r.weight} ${
           r.weight === 1 ? "venta juntos" : "ventas juntos"
@@ -79,6 +90,8 @@ export default function Ledger({ onChanged }: Props) {
       setBusy(false);
     }
   }
+
+  const puedeRelacionar = products.length >= 2;
 
   return (
     <section className="panel" aria-labelledby="registro-titulo">
@@ -131,6 +144,12 @@ export default function Ledger({ onChanged }: Props) {
           </div>
         </div>
 
+        {!cargando && !puedeRelacionar && (
+          <p className="empty-copy" style={{ marginBottom: 10 }}>
+            Registra al menos dos productos para crear una relación.
+          </p>
+        )}
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -138,29 +157,25 @@ export default function Ledger({ onChanged }: Props) {
           }}
         >
           <div className="field-grid">
-            <label className="field">
-              <span>Producto A</span>
-              <input
-                className="input"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="pan"
-                autoComplete="off"
-              />
-            </label>
-            <label className="field">
-              <span>Producto B</span>
-              <input
-                className="input"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                placeholder="leche"
-                autoComplete="off"
-              />
-            </label>
+            <ProductPicker
+              id="rel-source"
+              label="Producto A"
+              value={source}
+              options={products}
+              onChange={setSource}
+              disabled={!puedeRelacionar || busy}
+            />
+            <ProductPicker
+              id="rel-target"
+              label="Producto B"
+              value={target}
+              options={products}
+              onChange={setTarget}
+              disabled={!puedeRelacionar || busy}
+            />
           </div>
           <label className="field">
-            <span>Veces que se vendieron juntos</span>
+            <span>Peso(Frecuencia)</span>
             <input
               className="input"
               value={weight}
@@ -170,7 +185,11 @@ export default function Ledger({ onChanged }: Props) {
               autoComplete="off"
             />
           </label>
-          <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+          <button
+            className="btn btn-primary btn-block"
+            type="submit"
+            disabled={busy || !puedeRelacionar}
+          >
             Agregar relación
           </button>
         </form>
