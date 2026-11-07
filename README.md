@@ -116,6 +116,19 @@ GET /components  # 200 {"components":[["leche","pan","queso"]],"count":1}
 - Peso = **frecuencia/intensidad de co-compra** `int > 0`, default `1`. Duplicado exacto (cualquier orden) → `409` (sin auto-incremento, sin `PATCH`). Inválido (`<=0`, no-numérico, `source==target`/self-loop) → `422`.
 - `max_depth` default `2`, máximo permitido `3` (`GET /reachable?depth=` valida `1<=depth<=3`, fuera de rango → `422`). Depth 1 = compra directa conjunta; depth 2 = complementario vía intermediario; depth ≥3 = ruido, prohibido como recomendación automática. BFS propio con visited, orden determinista (peso desc, luego id asc).
 
+## Regla F3 (propuesta justificable, sin ML)
+
+Implementada en `backend/app/recommender.py` (B). El endpoint `GET /recommendations` queda pendiente de A; la UI y el acceptance, de C y D.
+
+1. **Candidatos:** BFS simétrico desde el producto consultado hasta 2 saltos. El origen se excluye.
+2. **Score:** a 1 salto, `peso_directo`; a 2 saltos, `peso_vía * 0.7`. En ambos casos se suma `0.1 * vecinos_comunes`.
+3. **Intermediario:** a 2 saltos se elige el que maximiza la arista intermediario→candidato; desempatan la arista origen→intermediario y el `id`.
+4. **Orden:** `score` desc, peso de apoyo desc, `id` asc. `limit` válido `1..10`, por defecto `5`.
+5. **`reason` no vacío:** `"relación directa peso 3 (compra conjunta frecuente)"` o `"alcance a 2 pasos vía leche (peso 2)"`. A 2 saltos también se expone `via`.
+6. **Sin invención:** un producto sin camino demostrable no aparece; un producto aislado devuelve lista vacía; `depth > 2` se ignora. Grafo vacío → `200` + `message` (esa regla tiene prioridad sobre el `404`, igual que en F2).
+
+**Sesgos:** favorece la co-compra frecuente y los productos con más vecinos en común; penaliza lo indirecto con el factor `0.7`; un producto aislado nunca se recomienda. Los valores `0.7` y `0.1` son parámetros fijos de diseño, no aprendizaje.
+
 ## Funcionalidades actuales vs futuras
 
 **Actual (Task 0 + F1 + F2 backend):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `acceptanceF1.py` 30/30 PASS y `acceptanceF2.py` 29/29 PASS, frontend Vite React TS que consume la API real (ledger, canvas y explorer, sin mocks ni lógica de grafo en TS), docs y git. Faltan recomendaciones (F3) y panel con cambio docente (F4).
@@ -126,7 +139,7 @@ GET /components  # 200 {"components":[["leche","pan","queso"]],"count":1}
 |---|---|---|
 | F1 Red comercial inicial | `POST/GET /products`, `POST/GET /relationships`, `GET /network` + ledger/canvas | Completo: backend + acceptance 30/30 + UI |
 | F2 Exploración | `GET /reachable?product=X&depth=2`, `GET /components` (BFS propio O(V+E)) | Completo: `algorithms.py` + router + explorer + acceptance 29/29 |
-| F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | No implementado |
+| F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | En progreso: regla + `recommender.py` (B); faltan API (A), UI (C) y acceptance (D) |
 | F4 Panel demostrable | Tabs Red/Explora/Propuesta/Panel + `ChangeSlot` + cambio docente con ADR | No implementado |
 
 ## Equipo / aportes
