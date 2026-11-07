@@ -125,7 +125,7 @@ Implementada en `backend/app/recommender.py` (B). El endpoint `GET /recommendati
 3. **Intermediario:** a 2 saltos se elige el que maximiza la arista intermediario→candidato; desempatan la arista origen→intermediario y el `id`.
 4. **Orden:** `score` desc, peso de apoyo desc, `id` asc. `limit` válido `1..10`, por defecto `5`.
 5. **`reason` no vacío:** `"relación directa peso 3 (compra conjunta frecuente)"` o `"alcance a 2 pasos vía leche (peso 2)"`. A 2 saltos también se expone `via`.
-6. **Sin invención:** un producto sin camino demostrable no aparece; un producto aislado devuelve lista vacía; `depth > 2` se ignora.
+6. **Sin invención:** un producto sin camino demostrable no aparece; un producto aislado devuelve lista vacía; `depth > 2` se ignora. Grafo vacío → `200` + `message` (esa regla tiene prioridad sobre el `404`, igual que en F2).
 
 **Sesgos:** favorece la co-compra frecuente y los productos con más vecinos en común; penaliza lo indirecto con el factor `0.7`; un producto aislado nunca se recomienda. Los valores `0.7` y `0.1` son parámetros fijos de diseño, no aprendizaje.
 
