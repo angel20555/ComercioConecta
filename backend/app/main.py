@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import explore, network, products, relationships
+from app.routers import explore, network, products, recommend, relationships
 
 app = FastAPI(title="ComercioConecta")
 
@@ -16,6 +16,7 @@ app.include_router(products.router)
 app.include_router(relationships.router)
 app.include_router(network.router)
 app.include_router(explore.router)
+app.include_router(recommend.router)
 
 
 @app.get("/health")
