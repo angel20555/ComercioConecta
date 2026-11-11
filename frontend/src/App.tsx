@@ -3,6 +3,7 @@ import { apiGet } from "./api/client";
 import Ledger from "./components/Ledger";
 import NetworkCanvas from "./components/NetworkCanvas";
 import Explorer from "./components/Explorer";
+import Recommend from "./components/Recommend";
 
 type Health = { status: string };
 
@@ -93,6 +94,7 @@ export default function App() {
           <div className="column">
             <NetworkCanvas refreshToken={token} />
             <Explorer refreshToken={token} />
+            <Recommend refreshToken={token} />
           </div>
         </div>
       </main>
