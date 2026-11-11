@@ -1,5 +1,7 @@
 # Modo oscuro y vistas por rol (F3) Implementation Plan
 
+> **Actualización 2026-11-11:** la vista cliente se reemplazó por `ClientShowcase` (buscador + relacionados). El administrador conserva los paneles técnicos. Este plan queda como registro de la primera implementación de roles y tema.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Agregar un selector visual Cliente/Administrador y un tema claro/oscuro persistente a la app F3, sin login ni cambios de backend.

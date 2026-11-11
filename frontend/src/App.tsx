@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "./api/client";
+import ClientShowcase from "./components/ClientShowcase";
 import Ledger from "./components/Ledger";
 import NetworkCanvas from "./components/NetworkCanvas";
 import Explorer from "./components/Explorer";
@@ -118,7 +119,7 @@ export default function App() {
           <span>
             {isAdmin
               ? "Gestión del mostrador y consulta de la red."
-              : "Consulta de la red, el explorador y las propuestas."}
+              : "Descubre qué se compra junto en el barrio."}
           </span>
           <span className="role-note__hint">
             Vista de demostración: cambia lo que ves, no tus permisos.
@@ -146,21 +147,15 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="workspace workspace--client">
-            <NetworkCanvas refreshToken={token} />
-            <div className="client-grid">
-              <Explorer refreshToken={token} />
-              <Recommend refreshToken={token} />
-            </div>
-          </div>
+          <ClientShowcase refreshToken={token} />
         )}
       </main>
 
       <footer className="footer">
         <p>
           Datos sintéticos de barrio: no hay clientes reales, precios ni
-          campañas. El grafo y sus recorridos viven en el backend; esta pantalla
-          solo consulta y dibuja.
+          campañas. Las relaciones viven en el backend; esta pantalla solo
+          consulta y muestra.
         </p>
       </footer>
     </>

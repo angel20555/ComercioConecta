@@ -10,7 +10,7 @@
 Mostrar dos formas de usar ComercioConecta sin cambiar el backend:
 
 - **Administrador:** carga productos y relaciones, y además consulta la red, el explorador y las propuestas.
-- **Cliente:** consulta la red, explora productos y recibe propuestas, sin acceso al mostrador de carga.
+- **Cliente:** busca un producto y descubre qué se compra junto, en una vitrina simple de productos relacionados. No ve el grafo, el explorador ni el lenguaje técnico de la red.
 
 Además, permitir cambiar entre tema claro y oscuro conservando la identidad visual de "letrero de tienda de barrio".
 
@@ -26,7 +26,7 @@ La separación es **de vista**, no de seguridad. El selector no protege datos ni
 | Persistencia | `localStorage` para rol y tema. |
 | Tema inicial | Preferencia del sistema (`prefers-color-scheme`), salvo que exista una elección guardada. |
 | Rol inicial | `cliente`, salvo que exista una elección guardada. |
-| Alcance de módulos | Mostrador solo para administrador; red, explorador y propuestas para ambos. |
+| Alcance de módulos | Mostrador, red, explorador y propuestas solo para administrador; vitrina de relacionados para cliente. |
 
 ## 3. Experiencia
 
@@ -41,19 +41,22 @@ Debajo del selector se muestra una ayuda breve: `Vista de demostración: cambia 
 
 ### 3.2 Vista Cliente
 
-Sin `Ledger`.
+Sin `Ledger`, sin `NetworkCanvas`, sin `Explorer` y sin `Recommend`.
 
 ```
 [ cabecera: marca | API | tema | Cliente/Admin ]
 
-[ La red del barrio ]  (ancho completo)
-
-[ Explora la red ] [ Propuesta comercial ]  (dos columnas en escritorio)
+[ Encuentra qué se compra junto ]  (ancho completo)
+  [ buscador de producto ] [ Ver relacionados ]
+  [ productos del barrio ]  (acceso rápido)
+  [ relacionados: tarjetas simples ]
 ```
 
-- La red es el primer contenido y ocupa todo el ancho.
-- Explorador y propuestas se muestran debajo, lado a lado en escritorio y apilados en móvil.
-- El cliente no ve formularios de alta ni la tabla de relaciones.
+- La vista se centra en una vitrina de compra: elegir un producto y ver hasta seis relacionados.
+- Cada tarjeta muestra solo el nombre, una etiqueta `Se compran juntos` o `También te puede interesar`, y la acción `Ver relacionados`.
+- Las tarjetas permiten encadenar la búsqueda: al elegir un relacionado se consultan sus propios relacionados.
+- No se muestran puntajes, distancias, `vía`, grafo ni explicaciones técnicas. El cliente no ve formularios de alta ni la tabla de relaciones.
+- La lógica sigue en el backend: el frontend solo consulta `listProducts()` y `getRecommendations(product, 6)`.
 
 ### 3.3 Vista Administrador
 
@@ -67,8 +70,8 @@ Conserva el layout actual de dos columnas:
                     [ Propuesta comercial]
 ```
 
-- El administrador ve todo lo del cliente y además el mostrador.
-- No se duplican componentes: se reutilizan `Ledger`, `NetworkCanvas`, `Explorer` y `Recommend`.
+- El administrador conserva el layout técnico de dos columnas: mostrador, red, explorador y propuestas.
+- No se duplican componentes: se reutilizan `Ledger`, `NetworkCanvas`, `Explorer` y `Recommend`; la vitrina cliente es un componente nuevo y compacto.
 - Cambiar de rol no debe requerir recargar la página.
 
 ### 3.4 Modo oscuro
@@ -97,7 +100,8 @@ Se aplica con `data-theme="light|dark"` en `<html>` y variables CSS. No se usan 
 - `frontend/src/App.tsx`: estado de tema/rol, cabecera y layouts por rol.
 - `frontend/src/components/RoleSwitch.tsx`: selector segmentado accesible.
 - `frontend/src/components/ThemeToggle.tsx`: botón de tema accesible.
-- `frontend/src/styles.css`: tokens de tema oscuro, controles nuevos, layout cliente y ajustes responsive.
+- `frontend/src/components/ClientShowcase.tsx`: vitrina de cliente con buscador, acceso rápido y tarjetas de relacionados.
+- `frontend/src/styles.css`: tokens de tema oscuro, controles nuevos, vitrina cliente y ajustes responsive.
 - `frontend/index.html` (solo si hace falta): bootstrap de tema para evitar flash.
 - `frontend/src/api/client.ts`: sin cambios.
 - `backend/`: sin cambios.
@@ -114,8 +118,9 @@ Se aplica con `data-theme="light|dark"` en `<html>` y variables CSS. No se usan 
 
 - `cd frontend; npm run build` debe pasar.
 - Revisión manual en navegador:
-  - Cliente no ve `Mostrador`; administrador sí.
-  - La red, el explorador y las propuestas siguen consultando la API real.
+  - Cliente no ve `Mostrador`, `La red del barrio`, `Explora la red` ni `Propuesta comercial`; administrador sí.
+  - La vitrina cliente consulta la API real y encadena relacionados al pulsar `Ver relacionados`.
+  - Los estados vacío, error y carga de la vitrina son legibles y no muestran lenguaje técnico.
   - El tema claro y oscuro se ven completos en ambos roles.
   - Recargar conserva tema y rol.
   - Sin preferencia guardada, el tema sigue `prefers-color-scheme` y el rol inicia en `cliente`.
