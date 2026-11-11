@@ -24,7 +24,7 @@
           if (meta) {
             meta.setAttribute("content", tema === "dark" ? "#0a141d" : "#123a6b");
           }
-        } catch (error) {
+        } catch {
           document.documentElement.dataset.theme = "light";
         }
       })();
