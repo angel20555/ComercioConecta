@@ -6,7 +6,7 @@ ComercioConecta es la red comercial de pymes de tiendas de barrio: registra prod
 
 Plan de trabajo: `docs/superpowers/plans/2026-10-02-comercioconecta-f1-f4.md`. Bitácora IA: `docs/aiLog.md`.
 
-## Estructura del monorepo (Task 0)
+## Estructura del monorepo
 
 ```text
 backend/                 # FastAPI + Pydantic v2 + Uvicorn
@@ -16,15 +16,17 @@ backend/                 # FastAPI + Pydantic v2 + Uvicorn
     main.py              # FastAPI + CORS + GET /health + GET /
     graph.py             # ProductGraph real no-dirigido (F1)
     algorithms.py        # F2: bfs_reachable + connected_components propias (sin NetworkX)
-    routers/             # products, relationships, network (F1) + explore (F2)
+    recommender.py       # F3: regla de propuesta a 2 saltos (sin ML)
+    routers/             # products, relationships, network (F1) + explore (F2) + recommend (F3)
 docs/
   aiLog.md               # bitácora IA (tabla Decisión|Herramienta|Propuesta|Acepté/Rechacé|Verificación)
   superpowers/plans/     # plan F1-F4
-scripts/acceptance/      # scripts stdlib urllib: acceptanceF1.py (30/30) y acceptanceF2.py (29/29)
+scripts/acceptance/      # scripts stdlib urllib: F1 (30/30), F2 (29/29) y F3 (25/25)
 frontend/                # Vite React TS que consume el backend real
   src/api/client.ts      # apiGet<T>/apiPost<T> con API_BASE=http://127.0.0.1:8000 (sin mocks, sin lógica de grafo; timeout 8 s)
-  src/App.tsx            # "ComercioConecta — conecta backend" + muestra el estado real de /health
-  src/components/        # Ledger, NetworkCanvas y Explorer (solo fetch/render)
+  src/App.tsx            # shell de rol/tema + estado real de /health
+  src/components/        # Cliente: ClientShowcase + ProductPicker; Admin: Ledger, NetworkCanvas, Explorer, Recommend; RoleSwitch, ThemeToggle
+  src/lib/preferences.ts # persistencia de tema (cc-theme) y rol (cc-role) en localStorage
 ```
 
 ## Instalación y ejecución
@@ -39,7 +41,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-Frontend (Task 0C, ya integrado):
+Frontend (Vite React TS, ya integrado):
 
 ```bash
 cd frontend
@@ -53,11 +55,11 @@ Aceptación (backend recién reiniciado en `http://127.0.0.1:8000`; cada script 
 ```bash
 python scripts/acceptance/acceptanceF1.py   # 30/30 PASS
 python scripts/acceptance/acceptanceF2.py   # 29/29 PASS
-python scripts/acceptance/acceptanceF3.py
+python scripts/acceptance/acceptanceF3.py   # 25/25 PASS
 python scripts/acceptance/acceptanceF4.py   # futuro
 ```
 
-## Endpoints (verificado contra `backend/app/routers/` + `acceptanceF1.py` 30/30 PASS)
+## Endpoints (verificado contra `backend/app/routers/` + `acceptanceF1.py` 30/30, `acceptanceF2.py` 29/29 y `acceptanceF3.py` 25/25)
 
 Base T0 (sigue igual):
 
@@ -66,7 +68,7 @@ Base T0 (sigue igual):
 | GET | `/health` | 200 `{"status":"ok"}` | — |
 | GET | `/` | 200 `{"message":"ComercioConecta API — red comercial de tiendas de barrio"}` | — |
 
-F1 Red comercial inicial (backend de A+B; UI ledger/canvas pendiente de C):
+F1 Red comercial inicial (backend de A+B; UI ledger/canvas de C):
 
 | Método | Ruta | OK | Errores |
 |---|---|---|---|
@@ -132,6 +134,18 @@ GET /recommendations?product=pan&limit=0      # 422
 GET /recommendations?product=nope             # 404 {"detail":"producto inexistente: 'nope'"}
 ```
 
+## Experiencia de uso: roles y tema
+
+El frontend tiene un selector **visual** de rol y un control de tema; no hay login ni permisos reales, y el backend no cambia.
+
+- **Rol por defecto:** `cliente`. El selector `Cliente` / `Administrador` solo cambia la vista y se guarda en `localStorage` (`cc-role`).
+- **Vista cliente (`ClientShowcase`):** buscador de producto + accesos rápidos a los productos del barrio. Muestra hasta **6 relacionados** con tarjetas que solo tienen nombre, la etiqueta `Se compran juntos` (relación directa) o `También te puede interesar` (segundo grado) y `Ver relacionados`. Cada tarjeta encadena otra búsqueda. No muestra grafo, scores, distancias, `via` ni la palabra técnica "saltos".
+- **Vista administrador:** conserva `Mostrador` (`Ledger`), `La red del barrio` (`NetworkCanvas`), `Explora la red` (`Explorer`) y `Propuesta comercial` (`Recommend`).
+- **Tema:** `Claro` / `Oscuro`; por defecto respeta `prefers-color-scheme`, se guarda en `localStorage` (`cc-theme`) y actualiza `data-theme` + `color-scheme`.
+- **Implementación:** `frontend/src/App.tsx`, `ClientShowcase.tsx`, `RoleSwitch.tsx`, `ThemeToggle.tsx`, `lib/preferences.ts` y `styles.css`.
+
+La vitrina cliente consume el mismo `GET /recommendations` real con `limit=6`; no hay lógica de grafo en TypeScript ni datos mock.
+
 ## Decisiones fijadas por el plan (grill + brainstorming, no re-discutir sin ADR)
 
 - Grafo **NO-DIRIGIDO simétrico**: `pan-leche` crea ambas entradas `adj[A][B]=adj[B][A]`. Relación = "se compran juntos", sin orden. `edges()` devuelve cada arista una vez.
@@ -140,7 +154,7 @@ GET /recommendations?product=nope             # 404 {"detail":"producto inexiste
 
 ## Regla F3 (propuesta justificable, sin ML)
 
-Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommendations` (A); UI en `frontend/src/components/Recommend.tsx` (C); verificada por `scripts/acceptance/acceptanceF3.py` (D) 25/25 PASS.
+Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommendations` (A); UI de administrador en `frontend/src/components/Recommend.tsx` y vitrina cliente en `frontend/src/components/ClientShowcase.tsx` (C); verificada por `scripts/acceptance/acceptanceF3.py` (D) 25/25 PASS.
 
 1. **Candidatos:** BFS simétrico desde el producto consultado hasta 2 saltos. El origen se excluye.
 2. **Score:** a 1 salto, `peso_directo`; a 2 saltos, `peso_vía * 0.7`. En ambos casos se suma `0.1 * vecinos_comunes`.
@@ -153,7 +167,7 @@ Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommenda
 
 ## Funcionalidades actuales vs futuras
 
-**Actual (Task 0 + F1 + F2 + F3):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `recommender.py` con la regla F3 y router `GET /recommendations`, `acceptanceF1.py` 30/30 + `acceptanceF2.py` 29/29 + `acceptanceF3.py` 25/25 PASS, frontend Vite React TS que consume la API real (ledger, canvas, explorer y recommend, sin mocks ni lógica de grafo en TS), docs y git. Falta el panel F4 con cambio docente.
+**Actual (Task 0 + F1 + F2 + F3):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `recommender.py` con la regla F3 y router `GET /recommendations`, `acceptanceF1.py` 30/30 + `acceptanceF2.py` 29/29 + `acceptanceF3.py` 25/25 PASS, frontend Vite React TS que consume la API real con selector visual de rol (cliente/administrador), tema claro/oscuro persistente y vitrina cliente de relacionados; el administrador conserva ledger, canvas, explorer y recommend. Sin mocks ni lógica de grafo en TS. Falta el panel F4 con cambio docente.
 
 **Estado F1-F4:**
 
@@ -161,7 +175,7 @@ Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommenda
 |---|---|---|
 | F1 Red comercial inicial | `POST/GET /products`, `POST/GET /relationships`, `GET /network` + ledger/canvas | Completo: backend + acceptance 30/30 + UI |
 | F2 Exploración | `GET /reachable?product=X&depth=2`, `GET /components` (BFS propio O(V+E)) | Completo: `algorithms.py` + router + explorer + acceptance 29/29 |
-| F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | Completo: regla (B) + API (A) + UI (C) + acceptance 25/25 (D) |
+| F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | Completo: regla (B) + API (A) + UI (C) + acceptance 25/25 (D); incluye roles/tema y vitrina cliente |
 | F4 Panel demostrable | Tabs Red/Explora/Propuesta/Panel + `ChangeSlot` + cambio docente con ADR | No implementado |
 
 ## Equipo / aportes
@@ -173,5 +187,7 @@ Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommenda
 | F2 | explore API | BFS | explorer UI | acceptance | 2 |
 | F3 | recommend API | regla | recommend UI | acceptance | 3 |
 | F4 | tabs | changeslot | panel | entrega | 4 |
+
+F3 también incluye la separación visual cliente/administrador, el tema claro/oscuro y la vitrina `ClientShowcase` (rama `feature/f3-andres-roles-dark`); el cambio de rol es solo de demostración y no altera permisos.
 
 Pitch F1 (rotación 1 según plan): pendiente de asignar por el equipo (orden sugerido: A). Video 3 min F1: pendiente (tarea humana, no va en este PR).
