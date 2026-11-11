@@ -4,8 +4,16 @@ import Ledger from "./components/Ledger";
 import NetworkCanvas from "./components/NetworkCanvas";
 import Explorer from "./components/Explorer";
 import Recommend from "./components/Recommend";
+import RoleSwitch from "./components/RoleSwitch";
 import ThemeToggle from "./components/ThemeToggle";
-import { initialTheme, persistTheme, type Theme } from "./lib/preferences";
+import {
+  initialRole,
+  initialTheme,
+  persistRole,
+  persistTheme,
+  type Role,
+  type Theme,
+} from "./lib/preferences";
 
 type Health = { status: string };
 
@@ -16,10 +24,15 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState(0);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [role, setRole] = useState<Role>(initialRole);
 
   useEffect(() => {
     persistTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    persistRole(role);
+  }, [role]);
 
   useEffect(() => {
     let vivo = true;
@@ -45,6 +58,8 @@ export default function App() {
       : health === "error"
         ? "API sin conexión"
         : "Conectando con la API";
+
+  const isAdmin = role === "administrador";
 
   return (
     <>
@@ -84,6 +99,7 @@ export default function App() {
                 <small>127.0.0.1:8000</small>
               </span>
             </div>
+            <RoleSwitch role={role} onChange={setRole} />
             <ThemeToggle
               theme={theme}
               onToggle={() =>
@@ -97,6 +113,18 @@ export default function App() {
       <div className="awning" aria-hidden="true" />
 
       <main className="page" id="contenido">
+        <p className="role-note" role="status">
+          <strong>{isAdmin ? "Vista administrador" : "Vista cliente"}</strong>
+          <span>
+            {isAdmin
+              ? "Gestión del mostrador y consulta de la red."
+              : "Consulta de la red, el explorador y las propuestas."}
+          </span>
+          <span className="role-note__hint">
+            Vista de demostración: cambia lo que ves, no tus permisos.
+          </span>
+        </p>
+
         {error !== null && (
           <p className="notice notice--error" role="alert">
             <strong>No se pudo hablar con el backend.</strong> Arráncalo desde{" "}
@@ -105,17 +133,27 @@ export default function App() {
           </p>
         )}
 
-        <div className="workspace">
-          <div className="column">
-            <Ledger onChanged={() => setToken((t) => t + 1)} />
-          </div>
+        {isAdmin ? (
+          <div className="workspace workspace--admin">
+            <div className="column">
+              <Ledger onChanged={() => setToken((t) => t + 1)} />
+            </div>
 
-          <div className="column">
-            <NetworkCanvas refreshToken={token} />
-            <Explorer refreshToken={token} />
-            <Recommend refreshToken={token} />
+            <div className="column">
+              <NetworkCanvas refreshToken={token} />
+              <Explorer refreshToken={token} />
+              <Recommend refreshToken={token} />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="workspace workspace--client">
+            <NetworkCanvas refreshToken={token} />
+            <div className="client-grid">
+              <Explorer refreshToken={token} />
+              <Recommend refreshToken={token} />
+            </div>
+          </div>
+        )}
       </main>
 
       <footer className="footer">
