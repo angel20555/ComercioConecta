@@ -53,7 +53,7 @@ Aceptación (backend recién reiniciado en `http://127.0.0.1:8000`; cada script 
 ```bash
 python scripts/acceptance/acceptanceF1.py   # 30/30 PASS
 python scripts/acceptance/acceptanceF2.py   # 29/29 PASS
-python scripts/acceptance/acceptanceF3.py   # futuro
+python scripts/acceptance/acceptanceF3.py
 python scripts/acceptance/acceptanceF4.py   # futuro
 ```
 
@@ -110,6 +110,28 @@ GET /reachable?product=queso&depth=2   # simétrico: leche 1, pan 2
 GET /components  # 200 {"components":[["leche","pan","queso"]],"count":1}
 ```
 
+F3 Propuesta justificable (regla de B, API de A, UI de C, acceptance de D):
+
+| Método | Ruta | OK | Errores |
+|---|---|---|---|
+| GET | `/recommendations?product=pan&limit=5` | 200 `{"product","recommendations":[{"id","score","reason","distance"}]}`; ítems a 2 saltos llevan `via` | 404 producto inexistente, 422 `limit` fuera de `1..10` o no numérico, 422 sin `product` |
+
+Notas F3: `limit` por defecto `5`; el origen nunca aparece en las recomendaciones; todo ítem trae `reason` no vacío; producto aislado o sin camino → 200 con `"message":"sin relaciones demostrables: no se inventan recomendaciones"`; grafo sin productos → 200 con `"message":"red vacía"` (misma prioridad sobre el 404 que en F2); el orden lo fija la regla (score desc, peso desc, id asc) y el frontend no reordena.
+
+```bash
+POST /products {"id":"pan"} ... {"id":"queso"}
+POST /relationships {"source":"pan","target":"leche","weight":3}   # 201
+POST /relationships {"source":"pan","target":"queso","weight":1}   # 201
+POST /relationships {"source":"leche","target":"queso","weight":2} # 201
+GET /recommendations?product=pan
+# 200 {"product":"pan","recommendations":[
+#   {"id":"leche","score":3.1,"reason":"relación directa peso 3 (compra conjunta frecuente)","distance":1},
+#   {"id":"queso","score":1.1,"reason":"relación directa peso 1 (compra conjunta frecuente)","distance":1}]}
+GET /recommendations?product=queso   # simétrico: leche 2.1, pan 1.1
+GET /recommendations?product=pan&limit=0      # 422
+GET /recommendations?product=nope             # 404 {"detail":"producto inexistente: 'nope'"}
+```
+
 ## Decisiones fijadas por el plan (grill + brainstorming, no re-discutir sin ADR)
 
 - Grafo **NO-DIRIGIDO simétrico**: `pan-leche` crea ambas entradas `adj[A][B]=adj[B][A]`. Relación = "se compran juntos", sin orden. `edges()` devuelve cada arista una vez.
@@ -118,7 +140,7 @@ GET /components  # 200 {"components":[["leche","pan","queso"]],"count":1}
 
 ## Regla F3 (propuesta justificable, sin ML)
 
-Implementada en `backend/app/recommender.py` (B). El endpoint `GET /recommendations` queda pendiente de A; la UI y el acceptance, de C y D.
+Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommendations` (A); UI en `frontend/src/components/Recommend.tsx` (C); verificada por `scripts/acceptance/acceptanceF3.py` (D) 25/25 PASS.
 
 1. **Candidatos:** BFS simétrico desde el producto consultado hasta 2 saltos. El origen se excluye.
 2. **Score:** a 1 salto, `peso_directo`; a 2 saltos, `peso_vía * 0.7`. En ambos casos se suma `0.1 * vecinos_comunes`.
@@ -131,7 +153,7 @@ Implementada en `backend/app/recommender.py` (B). El endpoint `GET /recommendati
 
 ## Funcionalidades actuales vs futuras
 
-**Actual (Task 0 + F1 + F2 backend):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `acceptanceF1.py` 30/30 PASS y `acceptanceF2.py` 29/29 PASS, frontend Vite React TS que consume la API real (ledger, canvas y explorer, sin mocks ni lógica de grafo en TS), docs y git. Faltan recomendaciones (F3) y panel con cambio docente (F4).
+**Actual (Task 0 + F1 + F2 + F3):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `recommender.py` con la regla F3 y router `GET /recommendations`, `acceptanceF1.py` 30/30 + `acceptanceF2.py` 29/29 + `acceptanceF3.py` 25/25 PASS, frontend Vite React TS que consume la API real (ledger, canvas, explorer y recommend, sin mocks ni lógica de grafo en TS), docs y git. Falta el panel F4 con cambio docente.
 
 **Estado F1-F4:**
 
@@ -139,7 +161,7 @@ Implementada en `backend/app/recommender.py` (B). El endpoint `GET /recommendati
 |---|---|---|
 | F1 Red comercial inicial | `POST/GET /products`, `POST/GET /relationships`, `GET /network` + ledger/canvas | Completo: backend + acceptance 30/30 + UI |
 | F2 Exploración | `GET /reachable?product=X&depth=2`, `GET /components` (BFS propio O(V+E)) | Completo: `algorithms.py` + router + explorer + acceptance 29/29 |
-| F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | En progreso: regla + `recommender.py` (B); faltan API (A), UI (C) y acceptance (D) |
+| F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | Completo: regla (B) + API (A) + UI (C) + acceptance 25/25 (D) |
 | F4 Panel demostrable | Tabs Red/Explora/Propuesta/Panel + `ChangeSlot` + cambio docente con ADR | No implementado |
 
 ## Equipo / aportes
