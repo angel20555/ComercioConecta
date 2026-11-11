@@ -135,3 +135,29 @@ export function reachable(
 export function getComponents(): Promise<ComponentsRes> {
   return apiGet<ComponentsRes>("/components");
 }
+
+// Tipos F3: espejo exacto del contrato backend, sin cómputo.
+// El backend ya devuelve el orden y los puntajes; el cliente no los altera.
+export type RecommendationItem = {
+  id: string;
+  score: number;
+  reason: string;
+  distance: number;
+  via?: string;
+};
+
+export type RecommendationsRes = {
+  product: string;
+  recommendations: RecommendationItem[];
+  message?: string;
+};
+
+export function getRecommendations(
+  product: string,
+  limit?: number,
+): Promise<RecommendationsRes> {
+  const q = limit === undefined ? "" : `&limit=${limit}`;
+  return apiGet<RecommendationsRes>(
+    `/recommendations?product=${encodeURIComponent(product)}${q}`,
+  );
+}
