@@ -8,6 +8,27 @@
       content="ComercioConecta: red sintética de co-compra de tiendas de barrio."
     />
     <meta name="theme-color" content="#123a6b" />
+    <script>
+      (function () {
+        try {
+          var guardado = localStorage.getItem("cc-theme");
+          var tema =
+            guardado === "light" || guardado === "dark"
+              ? guardado
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.dataset.theme = tema;
+          document.documentElement.style.colorScheme = tema;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) {
+            meta.setAttribute("content", tema === "dark" ? "#0a141d" : "#123a6b");
+          }
+        } catch (error) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

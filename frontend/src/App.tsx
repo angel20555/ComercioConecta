@@ -4,6 +4,8 @@ import Ledger from "./components/Ledger";
 import NetworkCanvas from "./components/NetworkCanvas";
 import Explorer from "./components/Explorer";
 import Recommend from "./components/Recommend";
+import ThemeToggle from "./components/ThemeToggle";
+import { initialTheme, persistTheme, type Theme } from "./lib/preferences";
 
 type Health = { status: string };
 
@@ -13,6 +15,11 @@ export default function App() {
   );
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState(0);
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+
+  useEffect(() => {
+    persistTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     let vivo = true;
@@ -65,12 +72,24 @@ export default function App() {
             </div>
           </div>
 
-          <div className="status" role="status">
-            <span className="status-dot" data-state={health} aria-hidden="true" />
-            <span>
-              {estado}
-              <small>127.0.0.1:8000</small>
-            </span>
+          <div className="masthead-controls">
+            <div className="status" role="status">
+              <span
+                className="status-dot"
+                data-state={health}
+                aria-hidden="true"
+              />
+              <span>
+                {estado}
+                <small>127.0.0.1:8000</small>
+              </span>
+            </div>
+            <ThemeToggle
+              theme={theme}
+              onToggle={() =>
+                setTheme((actual) => (actual === "dark" ? "light" : "dark"))
+              }
+            />
           </div>
         </div>
       </header>

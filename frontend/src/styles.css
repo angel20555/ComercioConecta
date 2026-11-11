@@ -138,6 +138,43 @@ p {
   background: var(--rojo);
 }
 
+.masthead-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--papel);
+  background: rgba(0, 0, 0, 0.16);
+  border: 2px solid var(--amarillo);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid var(--amarillo);
+  outline-offset: 2px;
+}
+
+.theme-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
 .status small {
   display: block;
   font-size: 12px;
