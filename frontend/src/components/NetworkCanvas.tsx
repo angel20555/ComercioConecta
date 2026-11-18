@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import {
+  apiErrorMessage,
   getNetwork,
   type NetworkRes,
   type RecommendationItem,
@@ -84,7 +85,7 @@ export default function NetworkCanvas({
         }
       })
       .catch((e: unknown) => {
-        if (vivo) setError(e instanceof Error ? e.message : "error desconocido");
+        if (vivo) setError(apiErrorMessage(e));
       })
       .finally(() => {
         if (vivo) setCargando(false);

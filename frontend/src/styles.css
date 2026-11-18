@@ -381,6 +381,72 @@ p {
   background: var(--verde-suave);
 }
 
+/* Pestañas F4: cartel de secciones, con la activa pintada como el toldo. */
+
+.admin-tabs {
+  display: grid;
+  gap: 22px;
+}
+
+.admin-tablist {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--papel);
+  border: 2px solid var(--tinta);
+  box-shadow: var(--sombra-media);
+}
+
+.admin-tab {
+  min-width: 0;
+  padding: 12px 14px;
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tinta);
+  text-align: center;
+  background: transparent;
+  border: 0;
+  border-right: 2px solid var(--tinta);
+  cursor: pointer;
+}
+
+.admin-tab:last-child {
+  border-right: 0;
+}
+
+.admin-tab:hover {
+  background: var(--hover-suave);
+}
+
+.admin-tab[aria-selected="true"] {
+  color: var(--sobre-azul);
+  background: var(--azul);
+  box-shadow: inset 0 -4px 0 var(--amarillo);
+}
+
+.admin-tab:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--amarillo);
+  outline-offset: 3px;
+}
+
+.admin-tabpanel {
+  min-width: 0;
+  outline: none;
+}
+
+.admin-tabpanel:focus-visible {
+  outline: 3px solid var(--azul-texto);
+  outline-offset: 6px;
+}
+
+.admin-tabpanel--single {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
 /* Panel F4: una sola vista para registrar, consultar y entender la propuesta. */
 
 .panel-demo {
@@ -1857,5 +1923,24 @@ p {
 
   .edge-label {
     font-size: 18px;
+  }
+}
+
+/* En móvil las cuatro secciones se leen en dos filas de dos. */
+@media (max-width: 640px) {
+  .admin-tablist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-tab {
+    border-bottom: 2px solid var(--tinta);
+  }
+
+  .admin-tab:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .admin-tab:nth-last-child(-n + 2) {
+    border-bottom: 0;
   }
 }
