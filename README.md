@@ -163,6 +163,7 @@ La vitrina cliente consume el mismo `GET /recommendations` real con `limit=6`; n
 - Nodos recomendados: `tabIndex=0`, `role="button"`, activación con Enter/Espacio, anillo de foco visible y lectura del `reason` en una región `aria-live`.
 - Responsive: 3 columnas en escritorio, 2 columnas con canvas a todo el ancho en tablet y 1 columna en móvil. El canvas mantiene etiquetas legibles en pantallas pequeñas.
 - `prefers-reduced-motion`: se conserva solo la animación de dibujo de aristas, desactivada cuando el usuario pide menos movimiento; no se agregaron transiciones nuevas.
+- Bitácora: las decisiones F4-C de vitrina y panel están registradas en `docs/aiLog.md`.
 - Pendiente de las otras tareas F4: tabs `Red/Explora/Propuesta/Panel` (A), `ChangeSlot` + cambio docente (B) y `acceptanceF4.py` (D).
 
 ## Decisiones fijadas por el plan (grill + brainstorming, no re-discutir sin ADR)
