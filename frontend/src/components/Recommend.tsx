@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  apiErrorHint,
+  apiErrorMessage,
   getRecommendations,
   listProducts,
   type RecommendationsRes,
 } from "../api/client";
 import ProductPicker from "./ProductPicker";
-
-function msg(e: unknown): string {
-  return e instanceof Error ? e.message : "error desconocido";
-}
 
 const LIMITS = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -24,8 +22,15 @@ export default function Recommend({ refreshToken, onResult }: Props) {
   const [limit, setLimit] = useState(5);
   const [result, setResult] = useState<RecommendationsRes | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorHint, setErrorHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const onResultRef = useRef(onResult);
+
+  function mostrarError(e: unknown): void {
+    setError(apiErrorMessage(e));
+    const hint = apiErrorHint(e);
+    setErrorHint(hint === "" ? null : hint);
+  }
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -53,6 +58,7 @@ export default function Recommend({ refreshToken, onResult }: Props) {
 
   async function proponer(): Promise<void> {
     setError(null);
+    setErrorHint(null);
     setResult(null);
     onResultRef.current?.(null);
     if (pid.trim() === "") {
@@ -66,7 +72,7 @@ export default function Recommend({ refreshToken, onResult }: Props) {
       setResult(data);
       onResultRef.current?.(data);
     } catch (e: unknown) {
-      setError(msg(e));
+      mostrarError(e);
       onResultRef.current?.(null);
     } finally {
       setBusy(false);
@@ -129,8 +135,12 @@ export default function Recommend({ refreshToken, onResult }: Props) {
         {error !== null && (
           <p className="notice notice--error" role="alert">
             {error}
-            <br />
-            Revisa que el producto esté registrado en el mostrador.
+            {errorHint !== null && (
+              <>
+                <br />
+                {errorHint}
+              </>
+            )}
           </p>
         )}
 

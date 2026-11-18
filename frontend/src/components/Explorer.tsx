@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import {
+  apiErrorHint,
+  apiErrorMessage,
   getComponents,
   listProducts,
   reachable,
@@ -8,10 +10,6 @@ import {
   type ReachableRes,
 } from "../api/client";
 import ProductPicker from "./ProductPicker";
-
-function msg(e: unknown): string {
-  return e instanceof Error ? e.message : "error desconocido";
-}
 
 const DEPTHS = [
   { value: 1, label: "directo" },
@@ -44,7 +42,14 @@ export default function Explorer({ refreshToken }: Props) {
   const [result, setResult] = useState<ReachableRes | null>(null);
   const [comps, setComps] = useState<ComponentsRes | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorHint, setErrorHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function mostrarError(e: unknown): void {
+    setError(apiErrorMessage(e));
+    const hint = apiErrorHint(e);
+    setErrorHint(hint === "" ? null : hint);
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -62,6 +67,7 @@ export default function Explorer({ refreshToken }: Props) {
 
   async function consultar(): Promise<void> {
     setError(null);
+    setErrorHint(null);
     setResult(null);
     if (pid.trim() === "") {
       setError("Escribe el nombre de un producto registrado.");
@@ -72,7 +78,7 @@ export default function Explorer({ refreshToken }: Props) {
       // El backend hace el BFS; aquí solo se pide y se pinta.
       setResult(await reachable(pid.trim(), depth));
     } catch (e: unknown) {
-      setError(msg(e));
+      mostrarError(e);
     } finally {
       setBusy(false);
     }
@@ -80,12 +86,13 @@ export default function Explorer({ refreshToken }: Props) {
 
   async function verComponentes(): Promise<void> {
     setError(null);
+    setErrorHint(null);
     setComps(null);
     setBusy(true);
     try {
       setComps(await getComponents());
     } catch (e: unknown) {
-      setError(msg(e));
+      mostrarError(e);
     } finally {
       setBusy(false);
     }
@@ -150,8 +157,12 @@ export default function Explorer({ refreshToken }: Props) {
         {error !== null && (
           <p className="notice notice--error" role="alert">
             {error}
-            <br />
-            Revisa que el producto esté registrado en el mostrador.
+            {errorHint !== null && (
+              <>
+                <br />
+                {errorHint}
+              </>
+            )}
           </p>
         )}
 

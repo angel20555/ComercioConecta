@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  apiErrorMessage,
   getRecommendations,
   listProducts,
   type RecommendationsRes,
@@ -57,10 +58,8 @@ export default function ClientShowcase({ refreshToken }: Props) {
     setBusy(true);
     try {
       setResult(await getRecommendations(limpio, LIMIT));
-    } catch {
-      setError(
-        "No pudimos mostrar los relacionados. Revisa el nombre o prueba con otro producto.",
-      );
+    } catch (e: unknown) {
+      setError(apiErrorMessage(e));
     } finally {
       setBusy(false);
     }

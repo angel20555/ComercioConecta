@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  apiErrorMessage,
   createProduct,
   createRel,
   listProducts,
@@ -8,13 +9,13 @@ import {
 } from "../api/client";
 import ProductPicker from "./ProductPicker";
 
-type Props = { onChanged: () => void };
+type Props = {
+  onChanged: () => void;
+  /** Permite que un alta externa fuerce la recarga de productos y relaciones. */
+  refreshToken?: number;
+};
 
-function msg(e: unknown): string {
-  return e instanceof Error ? e.message : "error desconocido";
-}
-
-export default function Ledger({ onChanged }: Props) {
+export default function Ledger({ onChanged, refreshToken = 0 }: Props) {
   const [products, setProducts] = useState<string[]>([]);
   const [rels, setRels] = useState<RelItem[]>([]);
   const [pid, setPid] = useState("pan");
@@ -33,7 +34,7 @@ export default function Ledger({ onChanged }: Props) {
       const r = await listRels();
       setRels(r.relationships);
     } catch (e: unknown) {
-      setError(msg(e));
+      setError(apiErrorMessage(e));
     } finally {
       setCargando(false);
     }
@@ -41,7 +42,7 @@ export default function Ledger({ onChanged }: Props) {
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refreshToken]);
 
   async function altaProducto(): Promise<void> {
     setInfo(null);
@@ -54,7 +55,7 @@ export default function Ledger({ onChanged }: Props) {
       await refresh();
       onChanged();
     } catch (e: unknown) {
-      setError(msg(e));
+      setError(apiErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -85,7 +86,7 @@ export default function Ledger({ onChanged }: Props) {
       await refresh();
       onChanged();
     } catch (e: unknown) {
-      setError(msg(e));
+      setError(apiErrorMessage(e));
     } finally {
       setBusy(false);
     }
