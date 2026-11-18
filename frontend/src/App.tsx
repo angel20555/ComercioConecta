@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "./api/client";
 import ClientShowcase from "./components/ClientShowcase";
-import Ledger from "./components/Ledger";
-import NetworkCanvas from "./components/NetworkCanvas";
-import Explorer from "./components/Explorer";
-import Recommend from "./components/Recommend";
+import Panel from "./components/Panel";
 import RoleSwitch from "./components/RoleSwitch";
 import ThemeToggle from "./components/ThemeToggle";
 import {
@@ -135,17 +132,10 @@ export default function App() {
         )}
 
         {isAdmin ? (
-          <div className="workspace workspace--admin">
-            <div className="column">
-              <Ledger onChanged={() => setToken((t) => t + 1)} />
-            </div>
-
-            <div className="column">
-              <NetworkCanvas refreshToken={token} />
-              <Explorer refreshToken={token} />
-              <Recommend refreshToken={token} />
-            </div>
-          </div>
+          <Panel
+            refreshToken={token}
+            onChanged={() => setToken((t) => t + 1)}
+          />
         ) : (
           <ClientShowcase refreshToken={token} />
         )}
