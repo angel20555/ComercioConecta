@@ -70,25 +70,25 @@ export default function ClientShowcase({ refreshToken }: Props) {
     setResult(null);
     setError(null);
     setPid("");
+    requestAnimationFrame(() => {
+      document.getElementById("client-product")?.focus();
+    });
   }
 
   return (
-    <section
-      className="panel showcase-panel"
-      aria-labelledby="escaparate-titulo"
-    >
-      <div className="panel-head panel-head--escaparate">
-        <h2 id="escaparate-titulo">Encuentra qué se compra junto</h2>
-        <p className="hint">Lo que el barrio ya está comprando</p>
-      </div>
-
-      <div className="panel-body">
-        <p className="showcase-lede">
-          Elige un producto y mira qué suele llevarse con él.
-        </p>
+    <section className="storefront" aria-labelledby="escaparate-titulo">
+      <div className="storefront-hero">
+        <div className="storefront-hero-copy">
+          <p className="storefront-kicker">La red del barrio</p>
+          <h2 id="escaparate-titulo">Encuentra qué se compra junto</h2>
+          <p className="storefront-lede">
+            Elige un producto y descubre qué suele llevarse con él. La red de
+            co-compra del barrio, sin cuentas ni precios.
+          </p>
+        </div>
 
         <form
-          className="showcase-search"
+          className="storefront-search"
           onSubmit={(e) => {
             e.preventDefault();
             void buscar(pid);
@@ -96,76 +96,73 @@ export default function ClientShowcase({ refreshToken }: Props) {
         >
           <ProductPicker
             id="client-product"
-            label="Producto"
+            label="¿Qué producto buscas?"
             value={pid}
             options={products}
             onChange={setPid}
             placeholder="Escribe un producto…"
             allowFreeText
           />
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? "Buscando…" : "Ver relacionados"}
+          <button className="btn btn-block" type="submit" disabled={busy}>
+            {busy ? "Buscando…" : "Buscar relacionados"}
           </button>
         </form>
+      </div>
 
-        {error !== null && (
-          <p className="notice notice--error" role="alert">
-            {error}
-          </p>
+      {error !== null && (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div
+        className="storefront-feedback"
+        aria-live="polite"
+        aria-busy={busy}
+      >
+        {busy && (
+          <p className="storefront-loading">Buscando qué se compra junto…</p>
         )}
 
-        <div aria-live="polite" aria-busy={busy}>
-          {busy && (
-            <p className="showcase-loading">
-              Buscando productos relacionados…
-            </p>
-          )}
-
-          {!busy && result === null && products.length > 0 && (
-            <div className="showcase-quick">
-              <h3 className="showcase-quick-title">Productos del barrio</h3>
-              <ul className="quick-list">
-                {products.map((producto, index) => (
-                  <li key={producto}>
-                    <button
-                      type="button"
-                      className="quick-product"
-                      onClick={() => void buscar(producto)}
-                      aria-label={`Ver relacionados de ${producto}`}
-                    >
-                      <span
-                        className={`product-tile product-tile--mini product-tile--${toneFor(index)}`}
-                        aria-hidden="true"
-                      >
-                        {initialOf(producto)}
-                      </span>
-                      {producto}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {!busy && result !== null && (
-            <>
-              <div className="showcase-result-head">
-                <h3>Relacionados con {result.product}</h3>
-                <button
-                  type="button"
-                  className="btn btn-quiet"
-                  onClick={cambiarProducto}
+        {!busy && result !== null && (
+          <section
+            className="storefront-results"
+            aria-labelledby="relacionados-titulo"
+          >
+            <div className="storefront-result-head">
+              <div className="storefront-selected">
+                <span
+                  className={`product-tile product-tile--${toneFor(0)}`}
+                  aria-hidden="true"
                 >
-                  Cambiar producto
-                </button>
-              </div>
-
-              {result.recommendations.length === 0 ? (
-                <div className="showcase-empty">
-                  <strong>Este producto todavía no tiene relacionados.</strong>
-                  <p>Prueba con otro producto del barrio.</p>
+                  {initialOf(result.product)}
+                </span>
+                <div>
+                  <p className="storefront-result-kicker">Producto elegido</p>
+                  <h3 id="relacionados-titulo">
+                    Relacionados con {result.product}
+                  </h3>
                 </div>
-              ) : (
+              </div>
+              <button
+                type="button"
+                className="btn btn-quiet"
+                onClick={cambiarProducto}
+              >
+                Volver al catálogo
+              </button>
+            </div>
+
+            {result.recommendations.length === 0 ? (
+              <div className="storefront-empty">
+                <strong>Este producto todavía no tiene relacionados.</strong>
+                <p>Prueba con otro producto del catálogo.</p>
+              </div>
+            ) : (
+              <>
+                <p className="storefront-result-lede">
+                  Estos productos aparecen juntos en la red del barrio.
+                </p>
                 <ul className="related-grid">
                   {result.recommendations.map((r, index) => (
                     <li className="related-card" key={r.id}>
@@ -201,21 +198,57 @@ export default function ClientShowcase({ refreshToken }: Props) {
                     </li>
                   ))}
                 </ul>
-              )}
-            </>
-          )}
-
-          {!busy &&
-            result === null &&
-            products.length === 0 &&
-            error === null && (
-              <div className="showcase-empty">
-                <strong>Todavía no hay productos en el barrio.</strong>
-                <p>Cuando el mostrador cargue productos, aparecerán aquí.</p>
-              </div>
+              </>
             )}
-        </div>
+          </section>
+        )}
       </div>
+
+      {products.length > 0 && (
+        <section className="storefront-catalog" aria-labelledby="catalogo-titulo">
+          <div className="storefront-section-head">
+            <div>
+              <h3 id="catalogo-titulo">Productos del barrio</h3>
+              <p>Elige uno para ver qué se compra junto.</p>
+            </div>
+            <span className="storefront-count">
+              {products.length} productos
+            </span>
+          </div>
+
+          <ul className="storefront-grid">
+            {products.map((producto, index) => (
+              <li key={producto}>
+                <button
+                  type="button"
+                  className="store-card"
+                  onClick={() => void buscar(producto)}
+                  disabled={busy}
+                  aria-label={`Ver relacionados de ${producto}`}
+                >
+                  <span
+                    className={`product-tile product-tile--${toneFor(index)}`}
+                    aria-hidden="true"
+                  >
+                    {initialOf(producto)}
+                  </span>
+                  <span className="store-card-body">
+                    <span className="store-card-name">{producto}</span>
+                    <span className="store-card-action">Ver relacionados</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {products.length === 0 && !busy && error === null && (
+        <div className="storefront-empty">
+          <strong>Todavía no hay productos en el barrio.</strong>
+          <p>Cuando el mostrador cargue productos, aparecerán aquí.</p>
+        </div>
+      )}
     </section>
   );
 }
