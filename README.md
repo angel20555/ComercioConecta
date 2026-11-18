@@ -139,12 +139,32 @@ GET /recommendations?product=nope             # 404 {"detail":"producto inexiste
 El frontend tiene un selector **visual** de rol y un control de tema; no hay login ni permisos reales, y el backend no cambia.
 
 - **Rol por defecto:** `cliente`. El selector `Cliente` / `Administrador` solo cambia la vista y se guarda en `localStorage` (`cc-role`).
-- **Vista cliente (`ClientShowcase`):** buscador de producto + accesos rápidos a los productos del barrio. Muestra hasta **6 relacionados** con tarjetas que solo tienen nombre, la etiqueta `Se compran juntos` (relación directa) o `También te puede interesar` (segundo grado) y `Ver relacionados`. Cada tarjeta encadena otra búsqueda. No muestra grafo, scores, distancias, `via` ni la palabra técnica "saltos".
-- **Vista administrador:** conserva `Mostrador` (`Ledger`), `La red del barrio` (`NetworkCanvas`), `Explora la red` (`Explorer`) y `Propuesta comercial` (`Recommend`).
+- **Vista cliente (`ClientShowcase`):** escaparate de tienda de barrio con hero de búsqueda y catálogo persistente de productos. Al elegir un producto aparece arriba una sección de hasta **6 relacionados** con tarjetas que solo tienen nombre, la etiqueta `Se compran juntos` (relación directa) o `También te puede interesar` (segundo grado) y `Ver relacionados`. Cada tarjeta encadena otra búsqueda y el catálogo sigue visible. Sin carrito, precios, stock ni fotos inventadas: solo nombres y relaciones reales. No muestra grafo, scores, distancias, `via` ni la palabra técnica "saltos".
+- **Vista administrador (`Panel`):** el panel F4 compone `Mostrador` (`Ledger`), `La red del barrio` (`NetworkCanvas`), `Explora la red` (`Explorer`) y `Propuesta comercial` (`Recommend`) en una sola vista. El canvas resalta el origen, los relacionados directos y los de segundo grado, y muestra el `reason` al pasar el cursor, tocar o enfocar un nodo. En escritorio el canvas queda sticky para ver el resaltado mientras se usa la propuesta.
 - **Tema:** `Claro` / `Oscuro`; por defecto respeta `prefers-color-scheme`, se guarda en `localStorage` (`cc-theme`) y actualiza `data-theme` + `color-scheme`.
-- **Implementación:** `frontend/src/App.tsx`, `ClientShowcase.tsx`, `RoleSwitch.tsx`, `ThemeToggle.tsx`, `lib/preferences.ts` y `styles.css`.
+- **Implementación:** `frontend/src/App.tsx`, `Panel.tsx`, `ClientShowcase.tsx`, `RoleSwitch.tsx`, `ThemeToggle.tsx`, `lib/preferences.ts` y `styles.css`.
 
 La vitrina cliente consume el mismo `GET /recommendations` real con `limit=6`; no hay lógica de grafo en TypeScript ni datos mock.
+
+## Panel F4 (C): canvas explicativo y propuesta resaltada
+
+```text
+┌──────────────────────── Panel comercial ─────────────────────────┐
+│ El encargado consulta pan y entiende por qué    1 Registra ...   │
+├────────────────┬───────────────────────────┬─────────────────────┤
+│ Mostrador      │ La red del barrio         │ Explora la red      │
+│ Ledger         │ canvas grande + leyenda   │ Propuesta comercial │
+│                │ motivo al hover/click     │ Recommend           │
+└────────────────┴───────────────────────────┴─────────────────────┘
+```
+
+- `Panel.tsx` solo compone y coordina; no hace fetch ni cálculo de grafo.
+- `Recommend` avisa el resultado con `onResult`; `NetworkCanvas` recibe ese resultado y resalta nodos/aristas usando `distance` y `via` del backend. El frontend no recorre el grafo.
+- Nodos recomendados: `tabIndex=0`, `role="button"`, activación con Enter/Espacio, anillo de foco visible y lectura del `reason` en una región `aria-live`.
+- Responsive: 3 columnas en escritorio, 2 columnas con canvas a todo el ancho en tablet y 1 columna en móvil. El canvas mantiene etiquetas legibles en pantallas pequeñas.
+- `prefers-reduced-motion`: se conserva solo la animación de dibujo de aristas, desactivada cuando el usuario pide menos movimiento; no se agregaron transiciones nuevas.
+- Bitácora: las decisiones F4-C de vitrina y panel están registradas en `docs/aiLog.md`.
+- Pendiente de las otras tareas F4: tabs `Red/Explora/Propuesta/Panel` (A), `ChangeSlot` + cambio docente (B) y `acceptanceF4.py` (D).
 
 ## Decisiones fijadas por el plan (grill + brainstorming, no re-discutir sin ADR)
 
@@ -167,7 +187,7 @@ Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommenda
 
 ## Funcionalidades actuales vs futuras
 
-**Actual (Task 0 + F1 + F2 + F3):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `recommender.py` con la regla F3 y router `GET /recommendations`, `acceptanceF1.py` 30/30 + `acceptanceF2.py` 29/29 + `acceptanceF3.py` 25/25 PASS, frontend Vite React TS que consume la API real con selector visual de rol (cliente/administrador), tema claro/oscuro persistente y vitrina cliente de relacionados; el administrador conserva ledger, canvas, explorer y recommend. Sin mocks ni lógica de grafo en TS. Falta el panel F4 con cambio docente.
+**Actual (Task 0 + F1 + F2 + F3 + panel F4-C):** backend base (`GET /health`, `GET /`, CORS a `http://localhost:5173`), `ProductGraph` real no-dirigido, routers F1 (`/products`, `/relationships`, `/network`), `algorithms.py` con BFS y componentes propias, router F2 (`/reachable`, `/components`), `recommender.py` con la regla F3 y router `GET /recommendations`, `acceptanceF1.py` 30/30 + `acceptanceF2.py` 29/29 + `acceptanceF3.py` 25/25 PASS, frontend Vite React TS que consume la API real con selector visual de rol (cliente/administrador), tema claro/oscuro persistente, vitrina cliente de relacionados y panel F4 con canvas explicativo y propuesta resaltada. Sin mocks ni lógica de grafo en TS. Faltan las tabs F4, `ChangeSlot`, cambio docente y `acceptanceF4.py`.
 
 **Estado F1-F4:**
 
@@ -176,7 +196,7 @@ Implementada en `backend/app/recommender.py` (B) y expuesta por `GET /recommenda
 | F1 Red comercial inicial | `POST/GET /products`, `POST/GET /relationships`, `GET /network` + ledger/canvas | Completo: backend + acceptance 30/30 + UI |
 | F2 Exploración | `GET /reachable?product=X&depth=2`, `GET /components` (BFS propio O(V+E)) | Completo: `algorithms.py` + router + explorer + acceptance 29/29 |
 | F3 Propuesta justificable | `GET /recommendations?product=X&limit=5` con regla explícita + `reason` (sin ML) | Completo: regla (B) + API (A) + UI (C) + acceptance 25/25 (D); incluye roles/tema y vitrina cliente |
-| F4 Panel demostrable | Tabs Red/Explora/Propuesta/Panel + `ChangeSlot` + cambio docente con ADR | No implementado |
+| F4 Panel demostrable | Tabs Red/Explora/Propuesta/Panel + `ChangeSlot` + cambio docente con ADR | Parcial: panel/canvas C implementado (propuesta resaltada + `reason`); faltan tabs (A), `ChangeSlot`/cambio docente (B) y acceptance (D) |
 
 ## Equipo / aportes
 

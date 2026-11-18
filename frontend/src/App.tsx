@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { apiGet } from "./api/client";
+import { useEffect, useState, type KeyboardEvent } from "react";
+import { apiErrorMessage, apiGet } from "./api/client";
 import ClientShowcase from "./components/ClientShowcase";
-import Ledger from "./components/Ledger";
-import NetworkCanvas from "./components/NetworkCanvas";
 import Explorer from "./components/Explorer";
+import Ledger from "./components/Ledger";
+import Panel from "./components/Panel";
 import Recommend from "./components/Recommend";
 import RoleSwitch from "./components/RoleSwitch";
 import ThemeToggle from "./components/ThemeToggle";
@@ -18,6 +18,23 @@ import {
 
 type Health = { status: string };
 
+type AdminTab = "red" | "explora" | "propuesta" | "panel";
+
+const ADMIN_TABS: { id: AdminTab; label: string }[] = [
+  { id: "red", label: "Red" },
+  { id: "explora", label: "Explora" },
+  { id: "propuesta", label: "Propuesta" },
+  { id: "panel", label: "Panel" },
+];
+
+function tabId(id: AdminTab): string {
+  return `admin-tab-${id}`;
+}
+
+function tabPanelId(id: AdminTab): string {
+  return `admin-tabpanel-${id}`;
+}
+
 export default function App() {
   const [health, setHealth] = useState<"conectando" | "ok" | "error">(
     "conectando",
@@ -26,6 +43,8 @@ export default function App() {
   const [token, setToken] = useState(0);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [role, setRole] = useState<Role>(initialRole);
+  // La entrada al panel de administración abre en la vista completa.
+  const [adminTab, setAdminTab] = useState<AdminTab>("panel");
 
   useEffect(() => {
     persistTheme(theme);
@@ -46,7 +65,7 @@ export default function App() {
       .catch((e: unknown) => {
         if (!vivo) return;
         setHealth("error");
-        setError(e instanceof Error ? e.message : "error desconocido");
+        setError(apiErrorMessage(e));
       });
     return () => {
       vivo = false;
@@ -61,6 +80,28 @@ export default function App() {
         : "Conectando con la API";
 
   const isAdmin = role === "administrador";
+
+  function onAdminTabKeyDown(
+    e: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ): void {
+    const total = ADMIN_TABS.length;
+    let nextIndex: number | null = null;
+
+    if (e.key === "ArrowRight") nextIndex = (index + 1) % total;
+    else if (e.key === "ArrowLeft") nextIndex = (index - 1 + total) % total;
+    else if (e.key === "Home") nextIndex = 0;
+    else if (e.key === "End") nextIndex = total - 1;
+
+    if (nextIndex === null) return;
+
+    e.preventDefault();
+    const next = ADMIN_TABS[nextIndex];
+    setAdminTab(next.id);
+    requestAnimationFrame(() => {
+      document.getElementById(tabId(next.id))?.focus();
+    });
+  }
 
   return (
     <>
@@ -135,17 +176,70 @@ export default function App() {
         )}
 
         {isAdmin ? (
-          <div className="workspace workspace--admin">
-            <div className="column">
-              <Ledger onChanged={() => setToken((t) => t + 1)} />
+          <section className="admin-tabs" aria-label="Secciones del panel">
+            <div
+              className="admin-tablist"
+              role="tablist"
+              aria-label="Secciones del panel de administración"
+            >
+              {ADMIN_TABS.map((tab, index) => (
+                <button
+                  key={tab.id}
+                  id={tabId(tab.id)}
+                  className="admin-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected={adminTab === tab.id}
+                  aria-controls={tabPanelId(tab.id)}
+                  tabIndex={adminTab === tab.id ? 0 : -1}
+                  onClick={() => setAdminTab(tab.id)}
+                  onKeyDown={(e) => onAdminTabKeyDown(e, index)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            <div className="column">
-              <NetworkCanvas refreshToken={token} />
-              <Explorer refreshToken={token} />
-              <Recommend refreshToken={token} />
-            </div>
-          </div>
+            {ADMIN_TABS.map((tab) => {
+              const active = adminTab === tab.id;
+
+              return (
+                <div
+                  key={tab.id}
+                  className={`admin-tabpanel${
+                    tab.id === "panel" ? "" : " admin-tabpanel--single"
+                  }`}
+                  id={tabPanelId(tab.id)}
+                  role="tabpanel"
+                  aria-labelledby={tabId(tab.id)}
+                  hidden={!active}
+                  tabIndex={active ? 0 : undefined}
+                >
+                  {active && tab.id === "red" && (
+                    <Ledger
+                      refreshToken={token}
+                      onChanged={() => setToken((t) => t + 1)}
+                    />
+                  )}
+
+                  {active && tab.id === "explora" && (
+                    <Explorer refreshToken={token} />
+                  )}
+
+                  {active && tab.id === "propuesta" && (
+                    <Recommend refreshToken={token} />
+                  )}
+
+                  {active && tab.id === "panel" && (
+                    <Panel
+                      refreshToken={token}
+                      onChanged={() => setToken((t) => t + 1)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </section>
         ) : (
           <ClientShowcase refreshToken={token} />
         )}
