@@ -1,7 +1,16 @@
 ﻿import { useEffect, useState } from "react";
-import { getNetwork, type NetworkRes } from "../api/client";
+import {
+  getNetwork,
+  type NetworkRes,
+  type RecommendationItem,
+  type RecommendationsRes,
+} from "../api/client";
 
-type Props = { refreshToken: number };
+type Props = {
+  refreshToken: number;
+  /** Resultado F3 ya calculado por el backend; aquí solo se resalta. */
+  recommendation?: RecommendationsRes | null;
+};
 
 type Pos = { x: number; y: number };
 
@@ -19,10 +28,51 @@ function layout(n: number, i: number): Pos {
   return { x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) };
 }
 
-export default function NetworkCanvas({ refreshToken }: Props) {
+// Marca la arista según la propuesta que ya devolvió el backend.
+// No se recorre el grafo: se usan `distance` y `via` del contrato F3.
+function edgeHighlight(
+  source: string,
+  target: string,
+  origin: string | null,
+  recs: RecommendationItem[],
+): "direct" | "via" | null {
+  if (origin === null) return null;
+
+  let via = false;
+  for (const r of recs) {
+    if (r.distance === 1) {
+      if (
+        (source === origin && target === r.id) ||
+        (target === origin && source === r.id)
+      ) {
+        return "direct";
+      }
+      continue;
+    }
+
+    if (r.via === undefined || r.via === "") continue;
+    if (
+      (source === origin && target === r.via) ||
+      (target === origin && source === r.via) ||
+      (source === r.via && target === r.id) ||
+      (target === r.via && source === r.id)
+    ) {
+      via = true;
+    }
+  }
+
+  return via ? "via" : null;
+}
+
+export default function NetworkCanvas({
+  refreshToken,
+  recommendation = null,
+}: Props) {
   const [net, setNet] = useState<NetworkRes | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -44,10 +94,26 @@ export default function NetworkCanvas({ refreshToken }: Props) {
     };
   }, [refreshToken]);
 
+  useEffect(() => {
+    setHoverId(null);
+    setSelectedId(null);
+  }, [recommendation]);
+
   const nodes = net?.nodes ?? [];
   const edges = net?.edges ?? [];
+  const recs = recommendation?.recommendations ?? [];
+  const origin = recommendation?.product ?? null;
+  const recById = new Map(recs.map((r) => [r.id, r]));
+  const activeId = hoverId ?? selectedId;
+  const activeRec = activeId === null ? undefined : recById.get(activeId);
+
   const pos = new Map<string, Pos>();
   nodes.forEach((n, i) => pos.set(n.id, layout(nodes.length, i)));
+
+  const canvasLabel =
+    recommendation === null
+      ? `Red con ${nodes.length} productos y ${edges.length} relaciones; las líneas no tienen dirección.`
+      : `Red con ${nodes.length} productos y ${edges.length} relaciones; propuesta para ${recommendation.product} con ${recs.length} productos resaltados.`;
 
   return (
     <section className="panel" aria-labelledby="red-titulo">
@@ -56,6 +122,7 @@ export default function NetworkCanvas({ refreshToken }: Props) {
         <p className="stats">
           <span>{cargando ? "…" : nodes.length} productos</span>
           <span>{cargando ? "…" : edges.length} relaciones</span>
+          {recommendation !== null && <span>{recs.length} resaltados</span>}
         </p>
       </div>
 
@@ -78,11 +145,7 @@ export default function NetworkCanvas({ refreshToken }: Props) {
             </p>
           </div>
         ) : (
-          <svg
-            viewBox="0 0 660 380"
-            role="img"
-            aria-label={`Red con ${nodes.length} productos y ${edges.length} relaciones; las líneas no tienen dirección.`}
-          >
+          <svg viewBox="0 0 660 380" role="group" aria-label={canvasLabel}>
             {edges.map((e) => {
               const a = pos.get(e.source);
               const b = pos.get(e.target);
@@ -92,17 +155,29 @@ export default function NetworkCanvas({ refreshToken }: Props) {
               const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
               const nx = (-(b.y - a.y) / len) * 12;
               const ny = ((b.x - a.x) / len) * 12;
+              const highlight = edgeHighlight(e.source, e.target, origin, recs);
+              const edgeClass =
+                highlight === "direct"
+                  ? "edge edge--direct"
+                  : highlight === "via"
+                    ? "edge edge--via"
+                    : "edge";
+
               return (
                 <g key={`${e.source}-${e.target}`}>
                   <line
-                    className="edge"
+                    className={edgeClass}
                     x1={a.x}
                     y1={a.y}
                     x2={b.x}
                     y2={b.y}
                     strokeWidth={1.5 + Math.min(e.weight, 6)}
                     pathLength={1}
-                  />
+                  >
+                    <title>
+                      {e.source} y {e.target}: se compran juntos (peso {e.weight})
+                    </title>
+                  </line>
                   <text
                     className="edge-label"
                     x={mx + nx}
@@ -120,9 +195,63 @@ export default function NetworkCanvas({ refreshToken }: Props) {
               const p = pos.get(n.id);
               if (p === undefined) return null;
               const arriba = p.y < CY;
+              const rec = recById.get(n.id);
+              const isOrigin = n.id === origin;
+              const focusable = isOrigin || rec !== undefined;
+              const active = activeId === n.id;
+              const nodeClass = [
+                "node",
+                isOrigin ? "node--origin" : "",
+                rec !== undefined ? "node--recommended" : "",
+                rec?.distance === 1 ? "node--direct" : "",
+                rec !== undefined && rec.distance !== 1 ? "node--indirect" : "",
+                active ? "node--active" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+              const label =
+                rec !== undefined
+                  ? `${n.id}. ${rec.reason}`
+                  : isOrigin
+                    ? `Producto consultado: ${n.id}`
+                    : n.id;
+
+              function activar(): void {
+                setSelectedId(n.id);
+              }
+
               return (
-                <g className="node" key={n.id}>
-                  <circle cx={p.x} cy={p.y} r={22} />
+                <g
+                  className={nodeClass}
+                  key={n.id}
+                  tabIndex={focusable ? 0 : undefined}
+                  role={focusable ? "button" : undefined}
+                  aria-label={focusable ? label : undefined}
+                  aria-pressed={focusable ? active : undefined}
+                  onMouseEnter={
+                    focusable ? () => setHoverId(n.id) : undefined
+                  }
+                  onMouseLeave={
+                    focusable ? () => setHoverId(null) : undefined
+                  }
+                  onFocus={focusable ? () => setHoverId(n.id) : undefined}
+                  onBlur={focusable ? () => setHoverId(null) : undefined}
+                  onClick={focusable ? activar : undefined}
+                  onKeyDown={
+                    focusable
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            activar();
+                          }
+                        }
+                      : undefined
+                  }
+                >
+                  {rec !== undefined && (
+                    <title>{`${n.id}: ${rec.reason}`}</title>
+                  )}
+                  <circle cx={p.x} cy={p.y} r={isOrigin ? 24 : 22} />
                   <text
                     x={p.x}
                     y={arriba ? p.y - 31 : p.y + 38}
@@ -136,6 +265,66 @@ export default function NetworkCanvas({ refreshToken }: Props) {
           </svg>
         )}
       </div>
+
+      {recommendation !== null && (
+        <div className="canvas-recommendation" aria-live="polite">
+          {recs.length > 0 && (
+            <div className="canvas-legend" aria-label="Leyenda de la propuesta">
+              <span className="canvas-legend__item canvas-legend__item--origin">
+                Origen
+              </span>
+              <span className="canvas-legend__item canvas-legend__item--direct">
+                Directo
+              </span>
+              <span className="canvas-legend__item canvas-legend__item--indirect">
+                A 2 pasos
+              </span>
+            </div>
+          )}
+
+          {recs.length === 0 ? (
+            <>
+              <p className="canvas-rec-kicker">Sin propuestas</p>
+              <p className="canvas-rec-copy">
+                {recommendation.message ??
+                  "El backend no encontró relaciones demostrables para este producto."}
+              </p>
+            </>
+          ) : activeRec !== undefined ? (
+            <>
+              <p className="canvas-rec-kicker">
+                {activeRec.distance === 1
+                  ? "Se compran juntos"
+                  : "También te puede interesar"}
+              </p>
+              <h3 className="canvas-rec-title">{activeRec.id}</h3>
+              <p className="canvas-rec-copy">{activeRec.reason}</p>
+              {activeRec.via !== undefined && activeRec.via !== "" && (
+                <p className="canvas-rec-via">Vía {activeRec.via}</p>
+              )}
+            </>
+          ) : activeId === origin ? (
+            <>
+              <p className="canvas-rec-kicker">Producto consultado</p>
+              <h3 className="canvas-rec-title">{activeId}</h3>
+              <p className="canvas-rec-copy">
+                El canvas resalta los productos que el backend propone a partir
+                de este origen.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="canvas-rec-kicker">
+                Propuesta para {recommendation.product}
+              </p>
+              <p className="canvas-rec-copy">
+                Pasa el cursor, toca o enfoca un producto resaltado para leer
+                por qué se propone.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       <p className="canvas-foot">
         El grosor de la línea crece con las veces que se venden juntos. Las

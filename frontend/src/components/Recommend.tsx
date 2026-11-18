@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getRecommendations,
   listProducts,
@@ -12,15 +12,24 @@ function msg(e: unknown): string {
 
 const LIMITS = Array.from({ length: 10 }, (_, i) => i + 1);
 
-type Props = { refreshToken: number };
+type Props = {
+  refreshToken: number;
+  /** Avisa al panel para resaltar la propuesta en el canvas. */
+  onResult?: (result: RecommendationsRes | null) => void;
+};
 
-export default function Recommend({ refreshToken }: Props) {
+export default function Recommend({ refreshToken, onResult }: Props) {
   const [pid, setPid] = useState("pan");
   const [products, setProducts] = useState<string[]>([]);
   const [limit, setLimit] = useState(5);
   const [result, setResult] = useState<RecommendationsRes | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const onResultRef = useRef(onResult);
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   useEffect(() => {
     let vivo = true;
@@ -36,9 +45,16 @@ export default function Recommend({ refreshToken }: Props) {
     };
   }, [refreshToken]);
 
+  useEffect(() => {
+    // Si cambió el grafo, la propuesta anterior ya no es confiable.
+    setResult(null);
+    onResultRef.current?.(null);
+  }, [refreshToken]);
+
   async function proponer(): Promise<void> {
     setError(null);
     setResult(null);
+    onResultRef.current?.(null);
     if (pid.trim() === "") {
       setError("Escribe el nombre de un producto registrado.");
       return;
@@ -46,9 +62,12 @@ export default function Recommend({ refreshToken }: Props) {
     setBusy(true);
     try {
       // La regla F3 vive en el backend; aquí solo se pide y se pinta.
-      setResult(await getRecommendations(pid.trim(), limit));
+      const data = await getRecommendations(pid.trim(), limit);
+      setResult(data);
+      onResultRef.current?.(data);
     } catch (e: unknown) {
       setError(msg(e));
+      onResultRef.current?.(null);
     } finally {
       setBusy(false);
     }
@@ -91,6 +110,7 @@ export default function Recommend({ refreshToken }: Props) {
                 // El resultado anterior ya no corresponde a esta cantidad.
                 setLimit(Number(e.target.value));
                 setResult(null);
+                onResultRef.current?.(null);
               }}
             >
               {LIMITS.map((n) => (
